@@ -3,6 +3,7 @@
   "editor.formatOnSave": true,
   "prettier.documentSelectors": ["**/*.sol"],
   "typescript.tsdk": "node_modules/typescript/lib",
+  "css.lint.unknownAtRules": "ignore",
   "[solidity]": {
     "editor.defaultFormatter": "NomicFoundation.hardhat-solidity"
   }

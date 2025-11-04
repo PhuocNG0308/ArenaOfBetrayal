@@ -9,8 +9,7 @@ import type { HardhatUserConfig } from "hardhat/config";
 import { vars } from "hardhat/config";
 import "solidity-coverage";
 
-import "./tasks/accounts";
-import "./tasks/FHECounter";
+import "./tasks/PrisonersDilemma";
 
 // Run 'npx hardhat vars setup' to see the list of variables that need to be set
 
@@ -20,7 +19,7 @@ const INFURA_API_KEY: string = vars.get("INFURA_API_KEY", "zzzzzzzzzzzzzzzzzzzzz
 const config: HardhatUserConfig = {
   defaultNetwork: "hardhat",
   namedAccounts: {
-    deployer: 0,
+    deployer: 1,
   },
   etherscan: {
     apiKey: {

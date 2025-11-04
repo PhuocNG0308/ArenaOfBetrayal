@@ -12,14 +12,29 @@ coverage
 dist
 node_modules
 types
-deployments
 tmp
+
+# deployments - keep only example files
+deployments/localhost
+deployments/sepolia
 
 # files
 *.env
+!.env.example
+!.env.sepolia.example
 *.log
 .DS_Store
 .pnp.*
 coverage.json
 pnpm-lock.yaml
 yarn.lock
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+*~
+
+# OS
+Thumbs.db

@@ -1,0 +1,18 @@
+.next
+node_modules
+out
+build
+dist
+.vercel
+.env*.local
+*.log
+.DS_Store
+
+# IDE
+.vscode
+.idea
+
+# Config files shouldn't be linted by TypeScript ESLint
+next.config.js
+postcss.config.js
+tailwind.config.js
