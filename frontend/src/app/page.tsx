@@ -6,6 +6,8 @@ import { TournamentInfo } from '@/components/TournamentInfo'
 import { TournamentControls } from '@/components/TournamentControls'
 import { PlayersList } from '@/components/PlayersList'
 import { Leaderboard } from '@/components/Leaderboard'
+import { PayoffMatrix } from '@/components/PayoffMatrix'
+import { LanguageSwitcher } from '@/components/LanguageSwitcher'
 import { useAccount } from 'wagmi'
 import { Sword, Shield } from 'lucide-react'
 
@@ -24,7 +26,10 @@ export default function Home() {
                 <p className="text-sm text-gray-400">FHE-Powered Prisoner's Dilemma Tournament</p>
               </div>
             </div>
-            <ConnectWallet />
+            <div className="flex items-center gap-4">
+              <LanguageSwitcher />
+              <ConnectWallet />
+            </div>
           </div>
         </div>
       </header>
@@ -81,6 +86,8 @@ export default function Home() {
               <TournamentControls />
             </div>
 
+            <PayoffMatrix />
+
             <PlayersList />
 
             <Leaderboard />
@@ -100,13 +107,13 @@ export default function Home() {
                   <h3 className="font-semibold text-white mb-2">⚔️ Round-Robin Format</h3>
                   <p className="text-sm">Every player faces every other player in the tournament. Total fairness guaranteed.</p>
                 </div>
-                <div className="bg-primary-900/20 border border-primary-700 p-4 rounded-lg mt-4">
-                  <h3 className="font-semibold text-primary-300 mb-2">Payoff Matrix</h3>
-                  <div className="text-sm space-y-1">
-                    <p>• Both Cooperate: <span className="text-success-400 font-semibold">3 points each</span></p>
-                    <p>• Defect vs Cooperate: <span className="text-danger-400 font-semibold">5 points</span> (defector) / <span className="text-gray-400">0 points</span> (cooperator)</p>
-                    <p>• Both Defect: <span className="text-warning-400 font-semibold">1 point each</span></p>
-                  </div>
+                <div>
+                  <h3 className="font-semibold text-white mb-2">🔐 FHE Encryption</h3>
+                  <p className="text-sm">Strategies encrypted with Zama's Fully Homomorphic Encryption. Complete privacy until tournament reveal.</p>
+                </div>
+                <div>
+                  <h3 className="font-semibold text-white mb-2">🏛️ DAO Governance</h3>
+                  <p className="text-sm">Tournament starts via decentralized voting. 50% quorum required - each player gets one vote!</p>
                 </div>
               </div>
             </div>
@@ -116,7 +123,7 @@ export default function Home() {
 
       <footer className="border-t border-gray-800 mt-20">
         <div className="container mx-auto px-4 py-6 text-center text-gray-500 text-sm">
-          <p>Built with <span className="text-primary-400">Zama FHEVM</span> • Bringing privacy to on-chain game theory 🔐</p>
+          <p>Built with <span className="text-primary-400">Zama FHEVM</span> • Privacy-First Game Theory 🔐</p>
         </div>
       </footer>
     </div>

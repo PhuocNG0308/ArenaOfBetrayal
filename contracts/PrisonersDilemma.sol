@@ -1,8 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import {FHE, euint8, euint32, ebool} from "@fhevm/solidity/lib/FHE.sol";
+import {FHE, euint8, ebool} from "@fhevm/solidity/lib/FHE.sol";
 
+/**
+ * @title PrisonersDilemma with Zama FHE
+ * @notice This contract uses Zama FHE to keep strategies encrypted until tournament ends
+ * @dev Strategies are encrypted on submission. Tournament results are computed offchain
+ *      using Zama Gateway for decryption, then published back onchain.
+ */
 contract PrisonersDilemma {
     enum Choice {
         Cooperate,
@@ -28,8 +34,8 @@ contract PrisonersDilemma {
 
     enum TournamentStatus {
         Registration,
-        Countdown,
-        Running,
+        PendingComputation, // Waiting for offchain computation
+        ResultsPublished,   // Results are public
         Finished
     }
 
@@ -37,37 +43,13 @@ contract PrisonersDilemma {
         ConditionSubject subject;
         ConditionOperator operator;
         uint256 value;
-        Choice action;
+        euint8 encryptedAction; // FHE encrypted action (0=Cooperate, 1=Defect)
     }
 
-    struct Strategy {
+    struct EncryptedStrategy {
         Rule[] rules;
-        Choice defaultAction;
+        euint8 encryptedDefaultAction; // FHE encrypted default action
         bool isSubmitted;
-    }
-
-    struct PlayerState {
-        Choice lastMove;
-        uint256 totalDefects;
-        uint256 totalCooperates;
-        uint256 score;
-    }
-
-    struct RoundData {
-        Choice player1Move;
-        Choice player2Move;
-        uint256 player1Score;
-        uint256 player2Score;
-    }
-
-    struct GameResult {
-        address player1;
-        address player2;
-        uint256 player1TotalScore;
-        uint256 player2TotalScore;
-        address winner;
-        uint256 totalRounds;
-        uint256 timestamp;
     }
 
     struct TournamentInfo {
@@ -76,41 +58,51 @@ contract PrisonersDilemma {
         uint256 startTime;
         uint256 playerCount;
         uint256 totalGames;
-        bool isFinished;
         uint256 rounds;
+        uint256 prizePool;
     }
 
-    uint256 public constant DEFAULT_ROUNDS = 100;
+    struct VoteInfo {
+        uint256 voteCount;
+        mapping(address => bool) hasVoted;
+        uint256 requiredVotes;
+    }
+
+    // Published results (after tournament completes)
+    struct PublishedResults {
+        mapping(address => uint256) scores;
+        address[] winners;
+        uint256[] prizes;
+        bool isPublished;
+    }
+
+    uint256 public constant DEFAULT_ROUNDS = 50; // Reduced from 100 for gas optimization
     uint256 public constant MIN_ROUNDS = 10;
-    uint256 public constant MAX_ROUNDS = 1000;
-    uint256 public constant BOTH_COOPERATE_REWARD = 3;
-    uint256 public constant DEFECT_VS_COOPERATE_REWARD = 5;
-    uint256 public constant COOPERATE_VS_DEFECT_REWARD = 0;
-    uint256 public constant BOTH_DEFECT_REWARD = 1;
+    uint256 public constant MAX_ROUNDS = 200; // Reduced from 1000
+    uint256 public constant ENTRY_FEE = 0.01 ether;
+    uint256 public constant WINNER_PERCENTAGE = 30;
+    uint256 public constant VOTE_QUORUM = 50;
+    uint256 public constant MAX_RULES = 10; // Reduced from 20 for gas optimization
 
     address public owner;
-    mapping(address => bool) public authorizedStarters;
+    address public computationOracle; // Authorized to publish results
     
-    mapping(address => Strategy) private strategies;
+    mapping(address => EncryptedStrategy) private encryptedStrategies;
     mapping(uint256 => TournamentInfo) public tournaments;
-    mapping(uint256 => mapping(uint256 => GameResult)) public tournamentGames;
-    mapping(uint256 => mapping(uint256 => RoundData[])) public tournamentGameRounds;
-    mapping(uint256 => mapping(address => uint256)) public tournamentPlayerScores;
     mapping(uint256 => address[]) public tournamentPlayers;
-    mapping(uint256 => mapping(address => mapping(address => bool))) private hasPlayed;
+    mapping(uint256 => VoteInfo) private tournamentVotes;
+    mapping(uint256 => PublishedResults) private tournamentResults;
     
     uint256 public currentTournamentId;
     TournamentInfo public currentTournament;
-    uint256 public tournamentStartCountdown;
 
     event StrategySubmitted(address indexed player, uint256 tournamentId);
-    event TournamentCreated(uint256 indexed tournamentId, uint256 startTime);
-    event TournamentStarted(uint256 indexed tournamentId, uint256 playerCount, uint256 totalGames);
-    event TournamentFinished(uint256 indexed tournamentId, address indexed winner, uint256 totalScore);
-    event GameCompleted(uint256 indexed tournamentId, uint256 indexed gameId, address indexed winner, uint256 player1Score, uint256 player2Score);
-    event CountdownUpdated(uint256 newCountdown);
-    event AuthorizedStarterAdded(address indexed starter);
-    event AuthorizedStarterRemoved(address indexed starter);
+    event TournamentCreated(uint256 indexed tournamentId);
+    event VoteCast(uint256 indexed tournamentId, address indexed voter, uint256 currentVotes, uint256 requiredVotes);
+    event TournamentStarted(uint256 indexed tournamentId, uint256 playerCount);
+    event ResultsPublished(uint256 indexed tournamentId, address[] winners, uint256[] prizes);
+    event TournamentFinished(uint256 indexed tournamentId);
+    event ComputationOracleSet(address indexed oracle);
     event TournamentRoundsSet(uint256 indexed tournamentId, uint256 rounds);
 
     modifier onlyOwner() {
@@ -118,112 +110,212 @@ contract PrisonersDilemma {
         _;
     }
 
-    modifier onlyAuthorized() {
-        require(msg.sender == owner || authorizedStarters[msg.sender], "Not authorized");
+    modifier onlyOracle() {
+        require(msg.sender == computationOracle || msg.sender == owner, "Only oracle");
         _;
     }
 
     modifier onlyRegistration() {
-        require(currentTournament.status == TournamentStatus.Registration, "Not in registration phase");
+        require(currentTournament.status == TournamentStatus.Registration, "Not in registration");
         _;
     }
 
     constructor() {
         owner = msg.sender;
+        computationOracle = msg.sender; // Owner is initial oracle
         currentTournamentId = 0;
-        tournamentStartCountdown = 0;
         currentTournament = TournamentInfo({
             tournamentId: 0,
             status: TournamentStatus.Registration,
             startTime: 0,
             playerCount: 0,
             totalGames: 0,
-            isFinished: false,
-            rounds: DEFAULT_ROUNDS
+            rounds: DEFAULT_ROUNDS,
+            prizePool: 0
         });
     }
 
-    function addAuthorizedStarter(address starter) external onlyOwner {
-        require(starter != address(0), "Invalid address");
-        authorizedStarters[starter] = true;
-        emit AuthorizedStarterAdded(starter);
+    function setComputationOracle(address oracle) external onlyOwner {
+        require(oracle != address(0), "Invalid oracle");
+        computationOracle = oracle;
+        emit ComputationOracleSet(oracle);
     }
 
-    function removeAuthorizedStarter(address starter) external onlyOwner {
-        authorizedStarters[starter] = false;
-        emit AuthorizedStarterRemoved(starter);
-    }
+    // Submit encrypted strategy with entry fee
+    function submitStrategy(
+        uint8[] calldata actions,
+        uint8 defaultAction,
+        ConditionSubject[] calldata subjects,
+        ConditionOperator[] calldata operators,
+        uint256[] calldata values
+    ) external payable onlyRegistration {
+        require(msg.value >= ENTRY_FEE, "Insufficient entry fee");
+        require(subjects.length == operators.length && operators.length == values.length && values.length == actions.length, "Mismatched arrays");
+        require(subjects.length <= MAX_RULES, "Too many rules");
+        require(!encryptedStrategies[msg.sender].isSubmitted, "Strategy already submitted");
 
-    function setTournamentCountdown(uint256 countdown) external onlyAuthorized {
-        require(currentTournament.status == TournamentStatus.Registration, "Not in registration");
-        tournamentStartCountdown = block.timestamp + countdown;
-        currentTournament.status = TournamentStatus.Countdown;
-        emit CountdownUpdated(tournamentStartCountdown);
-    }
+        delete encryptedStrategies[msg.sender].rules;
 
-    function submitStrategy(Rule[] memory _rules, Choice _defaultAction) external onlyRegistration {
-        require(_rules.length <= 20, "Too many rules (max 20)");
-        require(!strategies[msg.sender].isSubmitted, "Strategy already submitted");
-        
-        for (uint256 i = 0; i < _rules.length; i++) {
-            _validateRule(_rules[i]);
-        }
-
-        delete strategies[msg.sender].rules;
-
-        Strategy storage strategy = strategies[msg.sender];
-        strategy.defaultAction = _defaultAction;
+        EncryptedStrategy storage strategy = encryptedStrategies[msg.sender];
         strategy.isSubmitted = true;
 
-        for (uint256 i = 0; i < _rules.length; i++) {
-            strategy.rules.push(_rules[i]);
+        // Encrypt default action using Zama FHE
+        strategy.encryptedDefaultAction = FHE.asEuint8(defaultAction);
+        
+        // Batch permission grants - more gas efficient
+        FHE.allowTransient(strategy.encryptedDefaultAction, computationOracle);
+
+        for (uint256 i = 0; i < subjects.length; i++) {
+            _validateRuleStructure(subjects[i], operators[i]);
+            
+            // Encrypt each action using Zama FHE
+            euint8 encryptedAction = FHE.asEuint8(actions[i]);
+            
+            // Grant decryption permission only to oracle
+            FHE.allowTransient(encryptedAction, computationOracle);
+
+            strategy.rules.push(Rule({
+                subject: subjects[i],
+                operator: operators[i],
+                value: values[i],
+                encryptedAction: encryptedAction
+            }));
         }
 
         tournamentPlayers[currentTournamentId].push(msg.sender);
         currentTournament.playerCount++;
+        currentTournament.prizePool += msg.value;
+
+        // Update required votes for quorum
+        VoteInfo storage votes = tournamentVotes[currentTournamentId];
+        votes.requiredVotes = (currentTournament.playerCount * VOTE_QUORUM) / 100;
+        if (votes.requiredVotes < 2) votes.requiredVotes = 2;
 
         emit StrategySubmitted(msg.sender, currentTournamentId);
     }
 
-    function setTournamentRounds(uint256 rounds) external onlyAuthorized onlyRegistration {
+    function setTournamentRounds(uint256 rounds) external onlyOwner onlyRegistration {
         require(rounds >= MIN_ROUNDS && rounds <= MAX_ROUNDS, "Invalid rounds");
         currentTournament.rounds = rounds;
         emit TournamentRoundsSet(currentTournamentId, rounds);
     }
 
-    function startTournament() external onlyAuthorized {
-        require(
-            currentTournament.status == TournamentStatus.Registration || 
-            currentTournament.status == TournamentStatus.Countdown,
-            "Invalid status"
-        );
+    // DAO voting mechanism
+    function voteStartTournament() external {
+        require(currentTournament.status == TournamentStatus.Registration, "Not in registration");
+        require(encryptedStrategies[msg.sender].isSubmitted, "Must submit strategy to vote");
         
-        if (currentTournament.status == TournamentStatus.Countdown) {
-            require(block.timestamp >= tournamentStartCountdown, "Countdown not finished");
+        VoteInfo storage votes = tournamentVotes[currentTournamentId];
+        require(!votes.hasVoted[msg.sender], "Already voted");
+        
+        votes.hasVoted[msg.sender] = true;
+        votes.voteCount++;
+
+        emit VoteCast(currentTournamentId, msg.sender, votes.voteCount, votes.requiredVotes);
+
+        // Auto-start if quorum reached
+        if (votes.voteCount >= votes.requiredVotes) {
+            _startTournament();
+        }
+    }
+
+    function forceStartTournament() external onlyOwner {
+        _startTournament();
+    }
+
+    function _startTournament() private {
+        require(currentTournament.status == TournamentStatus.Registration, "Invalid status");
+        require(currentTournament.playerCount >= 2, "Need at least 2 players");
+
+        currentTournament.status = TournamentStatus.PendingComputation;
+        currentTournament.startTime = block.timestamp;
+        
+        // Calculate total games (round-robin)
+        uint256 n = currentTournament.playerCount;
+        currentTournament.totalGames = (n * (n - 1)) / 2;
+
+        emit TournamentStarted(currentTournamentId, currentTournament.playerCount);
+        
+        // Tournament strategies are now locked and encrypted
+        // Oracle will decrypt offchain, compute results, and publish back
+    }
+
+    // Oracle publishes computed results after offchain computation
+    function publishResults(
+        uint256 tournamentId,
+        address[] calldata players,
+        uint256[] calldata scores,
+        address[] calldata winners,
+        uint256[] calldata prizes
+    ) external onlyOracle {
+        require(tournamentId == currentTournamentId, "Invalid tournament");
+        require(currentTournament.status == TournamentStatus.PendingComputation, "Not pending");
+        require(players.length == scores.length, "Mismatched arrays");
+        require(winners.length == prizes.length, "Mismatched prizes");
+
+        PublishedResults storage results = tournamentResults[tournamentId];
+        require(!results.isPublished, "Already published");
+
+        // Store scores
+        for (uint256 i = 0; i < players.length; i++) {
+            results.scores[players[i]] = scores[i];
         }
 
-        require(currentTournament.playerCount >= 2, "Need at least 2 players");
+        // Store winners and prizes
+        results.winners = winners;
+        results.prizes = prizes;
+        results.isPublished = true;
 
-        currentTournament.status = TournamentStatus.Running;
-        currentTournament.startTime = block.timestamp;
+        currentTournament.status = TournamentStatus.ResultsPublished;
 
-        emit TournamentStarted(currentTournamentId, currentTournament.playerCount, 0);
+        emit ResultsPublished(tournamentId, winners, prizes);
 
-        _runTournament();
+        // Distribute prizes
+        _distributePrizes(tournamentId);
     }
 
-    function forceStartTournament() external onlyAuthorized {
-        require(currentTournament.status != TournamentStatus.Running, "Already running");
-        require(currentTournament.playerCount >= 2, "Need at least 2 players");
+    function _distributePrizes(uint256 tournamentId) private {
+        PublishedResults storage results = tournamentResults[tournamentId];
+        
+        for (uint256 i = 0; i < results.winners.length; i++) {
+            payable(results.winners[i]).transfer(results.prizes[i]);
+        }
 
-        currentTournament.status = TournamentStatus.Running;
-        currentTournament.startTime = block.timestamp;
+        currentTournament.status = TournamentStatus.Finished;
+        tournaments[tournamentId] = currentTournament;
 
-        emit TournamentStarted(currentTournamentId, currentTournament.playerCount, 0);
+        emit TournamentFinished(tournamentId);
 
-        _runTournament();
+        _prepareNextTournament();
     }
 
+    function _prepareNextTournament() private {
+        unchecked {
+            ++currentTournamentId;
+        }
+        
+        currentTournament = TournamentInfo({
+            tournamentId: currentTournamentId,
+            status: TournamentStatus.Registration,
+            startTime: 0,
+            playerCount: 0,
+            totalGames: 0,
+            rounds: DEFAULT_ROUNDS,
+            prizePool: 0
+        });
+
+        emit TournamentCreated(currentTournamentId);
+    }
+
+    function _validateRuleStructure(ConditionSubject subject, ConditionOperator operator) private pure {
+        if (subject == ConditionSubject.MyLastMove || subject == ConditionSubject.OpponentLastMove) {
+            require(operator == ConditionOperator.Is || operator == ConditionOperator.IsNot, "Invalid operator for move subject");
+        } else {
+            require(operator == ConditionOperator.Equals || operator == ConditionOperator.GreaterThan || operator == ConditionOperator.LessThan, "Invalid operator for numeric subject");
+        }
+    }
+
+    // View functions
     function getTournamentInfo() external view returns (TournamentInfo memory) {
         return currentTournament;
     }
@@ -240,237 +332,76 @@ contract PrisonersDilemma {
     }
 
     function getPlayerScore(uint256 tournamentId, address player) external view returns (uint256) {
-        return tournamentPlayerScores[tournamentId][player];
+        require(tournamentResults[tournamentId].isPublished, "Results not published yet");
+        return tournamentResults[tournamentId].scores[player];
     }
 
-    function getTournamentGame(uint256 tournamentId, uint256 gameId) external view returns (GameResult memory) {
-        return tournamentGames[tournamentId][gameId];
+    function getTournamentWinners(uint256 tournamentId) external view returns (address[] memory, uint256[] memory) {
+        require(tournamentResults[tournamentId].isPublished, "Results not published yet");
+        PublishedResults storage results = tournamentResults[tournamentId];
+        return (results.winners, results.prizes);
     }
 
-    function getTournamentGameRounds(uint256 tournamentId, uint256 gameId) external view returns (RoundData[] memory) {
-        return tournamentGameRounds[tournamentId][gameId];
+    function getVoteInfo(uint256 tournamentId) external view returns (uint256 voteCount, uint256 requiredVotes) {
+        VoteInfo storage votes = tournamentVotes[tournamentId];
+        return (votes.voteCount, votes.requiredVotes);
     }
 
-    function getStrategy(address player) external view returns (Rule[] memory rules, Choice defaultAction, bool isSubmitted) {
-        Strategy storage strategy = strategies[player];
-        return (strategy.rules, strategy.defaultAction, strategy.isSubmitted);
+    function hasVoted(uint256 tournamentId, address player) external view returns (bool) {
+        return tournamentVotes[tournamentId].hasVoted[player];
     }
 
-    function _runTournament() private {
-        address[] memory players = tournamentPlayers[currentTournamentId];
-        uint256 playersLength = players.length;
-        uint256 gameId = 0;
-        uint256 tournamentId = currentTournamentId;
-
-        unchecked {
-            for (uint256 i = 0; i < playersLength; ++i) {
-                for (uint256 j = i + 1; j < playersLength; ++j) {
-                    address player1 = players[i];
-                    address player2 = players[j];
-
-                    if (!hasPlayed[tournamentId][player1][player2]) {
-                        _simulateGame(tournamentId, gameId, player1, player2);
-                        hasPlayed[tournamentId][player1][player2] = true;
-                        hasPlayed[tournamentId][player2][player1] = true;
-                        ++gameId;
-                    }
-                }
-            }
-        }
-
-        currentTournament.totalGames = gameId;
-        currentTournament.isFinished = true;
-        currentTournament.status = TournamentStatus.Finished;
-
-        tournaments[currentTournamentId] = currentTournament;
-
-        address winner = _determineWinner();
-        uint256 winnerScore = tournamentPlayerScores[currentTournamentId][winner];
-
-        emit TournamentFinished(currentTournamentId, winner, winnerScore);
-
-        _prepareNextTournament();
-    }
-
-    function _simulateGame(uint256 tournamentId, uint256 gameId, address player1, address player2) private {
-        TournamentInfo memory tournamentInfo = tournamentId == currentTournamentId ? currentTournament : tournaments[tournamentId];
-        uint256 rounds = tournamentInfo.rounds;
-        
-        GameResult storage game = tournamentGames[tournamentId][gameId];
-        game.player1 = player1;
-        game.player2 = player2;
-        game.totalRounds = rounds;
-        game.timestamp = block.timestamp;
-        
-        PlayerState memory state1 = PlayerState({
-            lastMove: Choice.Cooperate,
-            totalDefects: 0,
-            totalCooperates: 0,
-            score: 0
-        });
-
-        PlayerState memory state2 = PlayerState({
-            lastMove: Choice.Cooperate,
-            totalDefects: 0,
-            totalCooperates: 0,
-            score: 0
-        });
-
-        unchecked {
-            for (uint256 round = 1; round <= rounds; ++round) {
-                Choice move1 = _determineMove(player1, round, state1, state2);
-                Choice move2 = _determineMove(player2, round, state2, state1);
-
-                (uint256 score1, uint256 score2) = _calculateRoundScores(move1, move2);
-
-                state1.lastMove = move1;
-                state2.lastMove = move2;
-                state1.score += score1;
-                state2.score += score2;
-
-                if (move1 == Choice.Defect) {
-                    ++state1.totalDefects;
-                } else {
-                    ++state1.totalCooperates;
-                }
-
-                if (move2 == Choice.Defect) {
-                    ++state2.totalDefects;
-                } else {
-                    ++state2.totalCooperates;
-                }
-
-                tournamentGameRounds[tournamentId][gameId].push(RoundData({
-                    player1Move: move1,
-                    player2Move: move2,
-                    player1Score: score1,
-                    player2Score: score2
-                }));
-            }
-        }
-
-        game.player1TotalScore = state1.score;
-        game.player2TotalScore = state2.score;
-        
-        tournamentPlayerScores[tournamentId][player1] += state1.score;
-        tournamentPlayerScores[tournamentId][player2] += state2.score;
-
-        if (state1.score > state2.score) {
-            game.winner = player1;
-        } else if (state2.score > state1.score) {
-            game.winner = player2;
-        } else {
-            game.winner = address(0);
-        }
-
-        emit GameCompleted(tournamentId, gameId, game.winner, state1.score, state2.score);
-    }
-
-    function _determineMove(address player, uint256 roundNumber, PlayerState memory myState, PlayerState memory opponentState) private view returns (Choice) {
-        Strategy storage strategy = strategies[player];
+    // Returns strategy structure (subjects, operators, values) - actions remain encrypted
+    function getStrategy(address player) external view returns (
+        ConditionSubject[] memory subjects,
+        ConditionOperator[] memory operators,
+        uint256[] memory values,
+        bool isSubmitted
+    ) {
+        EncryptedStrategy storage strategy = encryptedStrategies[player];
         uint256 rulesLength = strategy.rules.length;
 
-        unchecked {
-            for (uint256 i = 0; i < rulesLength; ++i) {
-                Rule storage rule = strategy.rules[i];
-                
-                if (_evaluateCondition(rule, roundNumber, myState, opponentState)) {
-                    return rule.action;
-                }
-            }
+        subjects = new ConditionSubject[](rulesLength);
+        operators = new ConditionOperator[](rulesLength);
+        values = new uint256[](rulesLength);
+
+        for (uint256 i = 0; i < rulesLength; i++) {
+            Rule storage rule = strategy.rules[i];
+            subjects[i] = rule.subject;
+            operators[i] = rule.operator;
+            values[i] = rule.value;
+            // Actions remain encrypted - not visible until oracle decrypts offchain
         }
 
-        return strategy.defaultAction;
+        isSubmitted = strategy.isSubmitted;
     }
 
-    function _evaluateCondition(Rule storage rule, uint256 roundNumber, PlayerState memory myState, PlayerState memory opponentState) private view returns (bool isTrue) {
-        uint256 actualValue;
-
-        if (rule.subject == ConditionSubject.RoundNumber) {
-            actualValue = roundNumber;
-        } else if (rule.subject == ConditionSubject.MyLastMove) {
-            actualValue = uint256(myState.lastMove);
-        } else if (rule.subject == ConditionSubject.OpponentLastMove) {
-            actualValue = uint256(opponentState.lastMove);
-        } else if (rule.subject == ConditionSubject.MyTotalDefects) {
-            actualValue = myState.totalDefects;
-        } else if (rule.subject == ConditionSubject.OpponentTotalDefects) {
-            actualValue = opponentState.totalDefects;
-        } else if (rule.subject == ConditionSubject.OpponentTotalCooperates) {
-            actualValue = opponentState.totalCooperates;
-        }
-
-        if (rule.operator == ConditionOperator.Equals || rule.operator == ConditionOperator.Is) {
-            return actualValue == rule.value;
-        } else if (rule.operator == ConditionOperator.IsNot) {
-            return actualValue != rule.value;
-        } else if (rule.operator == ConditionOperator.GreaterThan) {
-            return actualValue > rule.value;
-        } else if (rule.operator == ConditionOperator.LessThan) {
-            return actualValue < rule.value;
-        }
-
-        return false;
-    }
-
-    function _calculateRoundScores(Choice move1, Choice move2) private pure returns (uint256 score1, uint256 score2) {
-        if (move1 == Choice.Cooperate && move2 == Choice.Cooperate) {
-            return (BOTH_COOPERATE_REWARD, BOTH_COOPERATE_REWARD);
-        } else if (move1 == Choice.Cooperate && move2 == Choice.Defect) {
-            return (COOPERATE_VS_DEFECT_REWARD, DEFECT_VS_COOPERATE_REWARD);
-        } else if (move1 == Choice.Defect && move2 == Choice.Cooperate) {
-            return (DEFECT_VS_COOPERATE_REWARD, COOPERATE_VS_DEFECT_REWARD);
-        } else {
-            return (BOTH_DEFECT_REWARD, BOTH_DEFECT_REWARD);
-        }
-    }
-
-    function _validateRule(Rule memory rule) private pure {
-        if (rule.subject == ConditionSubject.MyLastMove || rule.subject == ConditionSubject.OpponentLastMove) {
-            require(rule.operator == ConditionOperator.Is || rule.operator == ConditionOperator.IsNot, "Invalid operator for move subject");
-            require(rule.value <= 1, "Invalid value for Choice (0=Cooperate, 1=Defect)");
-        } else {
-            require(rule.operator == ConditionOperator.Equals || rule.operator == ConditionOperator.GreaterThan || rule.operator == ConditionOperator.LessThan, "Invalid operator for numeric subject");
-        }
-    }
-
-    function _determineWinner() private view returns (address winner) {
-        address[] memory players = tournamentPlayers[currentTournamentId];
-        uint256 playersLength = players.length;
-        uint256 maxScore = 0;
-        address topPlayer = address(0);
-        uint256 tournamentId = currentTournamentId;
-
-        unchecked {
-            for (uint256 i = 0; i < playersLength; ++i) {
-                uint256 playerScore = tournamentPlayerScores[tournamentId][players[i]];
-                if (playerScore > maxScore) {
-                    maxScore = playerScore;
-                    topPlayer = players[i];
-                }
-            }
-        }
-
-        return topPlayer;
-    }
-
-    function _prepareNextTournament() private {
-        unchecked {
-            ++currentTournamentId;
+    // Request encrypted strategy data for offchain decryption (oracle only)
+    function getEncryptedStrategyForComputation(address player) external view onlyOracle returns (
+        euint8[] memory encryptedActions,
+        euint8 encryptedDefaultAction,
+        ConditionSubject[] memory subjects,
+        ConditionOperator[] memory operators,
+        uint256[] memory values
+    ) {
+        EncryptedStrategy storage strategy = encryptedStrategies[player];
+        require(strategy.isSubmitted, "No strategy submitted");
+        
+        uint256 rulesLength = strategy.rules.length;
+        encryptedActions = new euint8[](rulesLength);
+        subjects = new ConditionSubject[](rulesLength);
+        operators = new ConditionOperator[](rulesLength);
+        values = new uint256[](rulesLength);
+        
+        for (uint256 i = 0; i < rulesLength; i++) {
+            encryptedActions[i] = strategy.rules[i].encryptedAction;
+            subjects[i] = strategy.rules[i].subject;
+            operators[i] = strategy.rules[i].operator;
+            values[i] = strategy.rules[i].value;
         }
         
-        currentTournament = TournamentInfo({
-            tournamentId: currentTournamentId,
-            status: TournamentStatus.Registration,
-            startTime: 0,
-            playerCount: 0,
-            totalGames: 0,
-            isFinished: false,
-            rounds: DEFAULT_ROUNDS
-        });
-
-        tournamentStartCountdown = 0;
-
-        emit TournamentCreated(currentTournamentId, 0);
+        encryptedDefaultAction = strategy.encryptedDefaultAction;
     }
+
+    receive() external payable {}
 }

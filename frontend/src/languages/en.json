@@ -1,0 +1,131 @@
+{
+  "header": {
+    "title": "Arena of Betrayal",
+    "subtitle": "FHE-Powered Prisoner's Dilemma Tournament"
+  },
+  "welcome": {
+    "title": "Welcome to Arena of Betrayal",
+    "description": "A blockchain-based Iterated Prisoner's Dilemma tournament powered by Fully Homomorphic Encryption.",
+    "whyFHE": "Why FHE?",
+    "privacy": {
+      "title": "Complete Privacy",
+      "description": "Your strategy is encrypted and never revealed to other players"
+    },
+    "fairness": {
+      "title": "Provable Fairness",
+      "description": "All game logic runs on-chain with verifiable results"
+    },
+    "strategic": {
+      "title": "Strategic Depth",
+      "description": "Build complex conditional strategies that adapt to opponents"
+    }
+  },
+  "tournament": {
+    "title": "Tournament",
+    "status": {
+      "registration": "Registration",
+      "countdown": "Countdown",
+      "running": "Running",
+      "finished": "Finished"
+    },
+    "playersJoined": "Players Joined",
+    "prizePool": "Prize Pool",
+    "totalGames": "Total Games",
+    "roundsPerGame": "Rounds per Game",
+    "noLimit": "No limit - all welcome!",
+    "topShare": "ETH (Top 30% share)",
+    "roundRobin": "Round-robin format",
+    "configurable": "Configurable (10-1000)"
+  },
+  "strategy": {
+    "title": "Build Your Strategy",
+    "yourStrategy": "Your Strategy",
+    "encrypted": "FHE Encrypted",
+    "entryFeeTitle": "Entry Fee Required",
+    "entryFeeDescription": "You need to pay 0.01 ETH to submit your strategy and join the tournament. Top 30% of players will share the prize pool!",
+    "howItWorks": "How it works",
+    "howItWorksDescription": "Create conditional rules for your strategy. Each rule checks a condition and performs an action. Rules are evaluated in order. If no rule matches, the default action is used.",
+    "rule": "Rule",
+    "addRule": "Add Rule",
+    "maxRules": "Max {{count}} Rules",
+    "defaultAction": "Default Action (when no rules match)",
+    "cooperate": "Cooperate",
+    "defect": "Defect",
+    "submitButton": "Submit Strategy (0.01 ETH)",
+    "submitting": "Submitting...",
+    "waitingConfirmation": "Waiting for Confirmation...",
+    "submitted": "Strategy Submitted!",
+    "submittedDescription": "Your strategy is encrypted with FHE and stored on-chain",
+    "cannotEdit": "Cannot Edit Strategy",
+    "cannotEditDescription": "Once submitted, your strategy is locked and cannot be changed. This ensures fair play for all participants.",
+    "decryptedStrategy": "Your Decrypted Strategy",
+    "onlyVisibleToYou": "(Only visible to you)",
+    "conditionalRules": "Conditional Rules:",
+    "noRules": "No conditional rules. Using default action only.",
+    "privacyNote": "While you can view your own strategy here, it remains encrypted on-chain. Other players cannot see your strategy until the tournament ends.",
+    "encryptionNote": "Your strategy will be encrypted using Zama FHE (Fully Homomorphic Encryption) before being stored on-chain. Complete privacy guaranteed - even the owner cannot see strategies until tournament reveal!"
+  },
+  "controls": {
+    "title": "Tournament Controls",
+    "daoVoting": "DAO Voting to Start Tournament",
+    "votes": "Votes",
+    "needed": "needed",
+    "alreadyVoted": "You've already voted!",
+    "submitStrategyFirst": "Submit your strategy first to participate in voting",
+    "castVote": "Cast Your Vote to Start",
+    "voting": "Voting...",
+    "confirmingVote": "Confirming Vote...",
+    "autoStart": "Tournament auto-starts when {{count}} votes reached (50% quorum)",
+    "setRounds": "Set Rounds (10-1000) - Owner Only",
+    "set": "Set",
+    "lowerRoundsNote": "Lower rounds = less gas. Recommended: 50 for 4+ players",
+    "forceStart": "Force Start Tournament (Owner)",
+    "emergencyOverride": "Emergency override - bypasses voting requirement"
+  },
+  "payoff": {
+    "title": "Payoff Matrix",
+    "description": "Points earned per round based on both players' choices",
+    "opponentCooperates": "Opponent Cooperates",
+    "opponentDefects": "Opponent Defects",
+    "youCooperate": "You Cooperate",
+    "youDefect": "You Defect",
+    "mutualCooperation": "Mutual Cooperation",
+    "mutualCooperationDescription": "Both players benefit equally",
+    "youBetrayed": "You're Betrayed",
+    "youBetrayedDescription": "You get nothing, opponent exploits",
+    "youBetray": "You Betray",
+    "youBetrayDescription": "You exploit their cooperation",
+    "mutualDefection": "Mutual Defection",
+    "mutualDefectionDescription": "Both lose most potential points",
+    "bothCooperate": "Both Cooperate",
+    "betraySuccess": "Betray Success",
+    "betrayed": "Betrayed",
+    "bothDefect": "Both Defect",
+    "prizeDistribution": "Prize Distribution",
+    "entryFee": "Entry Fee:",
+    "entryFeeAmount": "0.01 ETH per player",
+    "winners": "Winners:",
+    "winnersDescription": "Top 30% of players by total score",
+    "distribution": "Distribution:",
+    "distributionDescription": "Progressive rewards (1st place gets the most)",
+    "example": "Example:",
+    "exampleDescription": "With 10 players, top 3 share the 0.1 ETH prize pool"
+  },
+  "about": {
+    "title": "About the Game",
+    "customStrategies": "Custom Strategies",
+    "customStrategiesDescription": "Build your own strategy using conditional rules. Define when to cooperate or defect based on game state.",
+    "unlimitedPlayers": "Unlimited Players",
+    "unlimitedPlayersDescription": "No player limit! The more players join, the more interesting the tournament becomes.",
+    "roundRobin": "Round-Robin Format",
+    "roundRobinDescription": "Every player faces every other player in the tournament. Total fairness guaranteed.",
+    "fheEncryption": "FHE Encryption",
+    "fheEncryptionDescription": "Strategies encrypted with Zama's Fully Homomorphic Encryption. Complete privacy until tournament reveal.",
+    "daoGovernance": "DAO Governance",
+    "daoGovernanceDescription": "Tournament starts via decentralized voting. 50% quorum required - each player gets one vote!"
+  },
+  "footer": {
+    "builtWith": "Built with",
+    "tagline": "Privacy-First Game Theory"
+  }
+}

@@ -1,0 +1,131 @@
+{
+  "header": {
+    "title": "Đấu Trường Phản Bội",
+    "subtitle": "Giải Đấu Prisoner's Dilemma Với FHE"
+  },
+  "welcome": {
+    "title": "Chào Mừng Đến Đấu Trường Phản Bội",
+    "description": "Một giải đấu Prisoner's Dilemma lặp lại trên blockchain, được hỗ trợ bởi mã hóa đồng cấu hoàn toàn (FHE).",
+    "whyFHE": "Tại sao FHE?",
+    "privacy": {
+      "title": "Bảo Mật Tuyệt Đối",
+      "description": "Chiến thuật của bạn được mã hóa và không bao giờ bị tiết lộ cho người chơi khác"
+    },
+    "fairness": {
+      "title": "Công Bằng Minh Bạch",
+      "description": "Toàn bộ logic game chạy trên blockchain với kết quả có thể xác minh"
+    },
+    "strategic": {
+      "title": "Chiều Sâu Chiến Thuật",
+      "description": "Xây dựng chiến thuật điều kiện phức tạp thích ứng với đối thủ"
+    }
+  },
+  "tournament": {
+    "title": "Giải Đấu",
+    "status": {
+      "registration": "Đang Đăng Ký",
+      "countdown": "Đếm Ngược",
+      "running": "Đang Diễn Ra",
+      "finished": "Đã Kết Thúc"
+    },
+    "playersJoined": "Người Chơi Tham Gia",
+    "prizePool": "Tổng Giải Thưởng",
+    "totalGames": "Tổng Số Trận",
+    "roundsPerGame": "Vòng Mỗi Trận",
+    "noLimit": "Không giới hạn - tất cả đều được chào đón!",
+    "topShare": "ETH (Top 30% chia giải)",
+    "roundRobin": "Định dạng vòng tròn",
+    "configurable": "Có thể cấu hình (10-1000)"
+  },
+  "strategy": {
+    "title": "Xây Dựng Chiến Thuật",
+    "yourStrategy": "Chiến Thuật Của Bạn",
+    "encrypted": "Đã Mã Hóa FHE",
+    "entryFeeTitle": "Yêu Cầu Phí Tham Gia",
+    "entryFeeDescription": "Bạn cần trả 0.01 ETH để gửi chiến thuật và tham gia giải đấu. Top 30% người chơi sẽ chia tổng giải thưởng!",
+    "howItWorks": "Cách hoạt động",
+    "howItWorksDescription": "Tạo các quy tắc có điều kiện cho chiến thuật của bạn. Mỗi quy tắc kiểm tra một điều kiện và thực hiện một hành động. Quy tắc được đánh giá theo thứ tự. Nếu không có quy tắc nào khớp, hành động mặc định sẽ được sử dụng.",
+    "rule": "Quy Tắc",
+    "addRule": "Thêm Quy Tắc",
+    "maxRules": "Tối Đa {{count}} Quy Tắc",
+    "defaultAction": "Hành động mặc định (khi không có quy tắc nào khớp)",
+    "cooperate": "Hợp Tác",
+    "defect": "Phản Bội",
+    "submitButton": "Gửi Chiến Thuật (0.01 ETH)",
+    "submitting": "Đang gửi...",
+    "waitingConfirmation": "Đang chờ xác nhận...",
+    "submitted": "Đã Gửi Chiến Thuật!",
+    "submittedDescription": "Chiến thuật của bạn đã được mã hóa bằng FHE và lưu trên blockchain",
+    "cannotEdit": "Không Thể Chỉnh Sửa Chiến Thuật",
+    "cannotEditDescription": "Sau khi gửi, chiến thuật của bạn sẽ bị khóa và không thể thay đổi. Điều này đảm bảo công bằng cho tất cả người chơi.",
+    "decryptedStrategy": "Chiến Thuật Đã Giải Mã",
+    "onlyVisibleToYou": "(Chỉ hiển thị với bạn)",
+    "conditionalRules": "Quy tắc có điều kiện:",
+    "noRules": "Không có quy tắc có điều kiện. Chỉ sử dụng hành động mặc định.",
+    "privacyNote": "Mặc dù bạn có thể xem chiến thuật của mình ở đây, nó vẫn được mã hóa trên blockchain. Người chơi khác không thể thấy chiến thuật của bạn cho đến khi giải đấu kết thúc.",
+    "encryptionNote": "Chiến thuật của bạn sẽ được mã hóa bằng Zama FHE (Fully Homomorphic Encryption) trước khi lưu trữ trên blockchain. Đảm bảo quyền riêng tư hoàn toàn - ngay cả chủ sở hữu cũng không thể thấy chiến thuật cho đến khi công bố kết quả!"
+  },
+  "controls": {
+    "title": "Điều Khiển Giải Đấu",
+    "daoVoting": "Bỏ Phiếu DAO Để Bắt Đầu Giải Đấu",
+    "votes": "Phiếu",
+    "needed": "cần thiết",
+    "alreadyVoted": "Bạn đã bỏ phiếu rồi!",
+    "submitStrategyFirst": "Gửi chiến thuật trước để tham gia bỏ phiếu",
+    "castVote": "Bỏ Phiếu Để Bắt Đầu",
+    "voting": "Đang bỏ phiếu...",
+    "confirmingVote": "Đang xác nhận phiếu...",
+    "autoStart": "Giải đấu tự động bắt đầu khi đạt {{count}} phiếu (50% quorum)",
+    "setRounds": "Đặt Số Vòng (10-1000) - Chỉ Chủ Sở Hữu",
+    "set": "Đặt",
+    "lowerRoundsNote": "Vòng thấp hơn = gas ít hơn. Khuyến nghị: 50 cho 4+ người chơi",
+    "forceStart": "Bắt Buộc Bắt Đầu (Chủ Sở Hữu)",
+    "emergencyOverride": "Ghi đè khẩn cấp - bỏ qua yêu cầu bỏ phiếu"
+  },
+  "payoff": {
+    "title": "Ma Trận Điểm",
+    "description": "Điểm kiếm được mỗi vòng dựa trên lựa chọn của cả hai người chơi",
+    "opponentCooperates": "Đối Thủ Hợp Tác",
+    "opponentDefects": "Đối Thủ Phản Bội",
+    "youCooperate": "Bạn Hợp Tác",
+    "youDefect": "Bạn Phản Bội",
+    "mutualCooperation": "Cùng Hợp Tác",
+    "mutualCooperationDescription": "Cả hai người chơi đều được lợi bằng nhau",
+    "youBetrayed": "Bạn Bị Phản Bội",
+    "youBetrayedDescription": "Bạn không nhận gì, đối thủ khai thác",
+    "youBetray": "Bạn Phản Bội",
+    "youBetrayDescription": "Bạn khai thác sự hợp tác của họ",
+    "mutualDefection": "Cùng Phản Bội",
+    "mutualDefectionDescription": "Cả hai đều mất nhiều điểm tiềm năng nhất",
+    "bothCooperate": "Cùng Hợp Tác",
+    "betraySuccess": "Phản Bội Thành Công",
+    "betrayed": "Bị Phản Bội",
+    "bothDefect": "Cùng Phản Bội",
+    "prizeDistribution": "Phân Phối Giải Thưởng",
+    "entryFee": "Phí Tham Gia:",
+    "entryFeeAmount": "0.01 ETH mỗi người chơi",
+    "winners": "Người Thắng:",
+    "winnersDescription": "Top 30% người chơi theo tổng điểm",
+    "distribution": "Phân Phối:",
+    "distributionDescription": "Phần thưởng lũy tiến (hạng 1 nhận nhiều nhất)",
+    "example": "Ví Dụ:",
+    "exampleDescription": "Với 10 người chơi, top 3 chia 0.1 ETH tổng giải thưởng"
+  },
+  "about": {
+    "title": "Về Trò Chơi",
+    "customStrategies": "Chiến Thuật Tùy Chỉnh",
+    "customStrategiesDescription": "Xây dựng chiến thuật riêng bằng quy tắc có điều kiện. Xác định khi nào hợp tác hoặc phản bội dựa trên trạng thái game.",
+    "unlimitedPlayers": "Không Giới Hạn Người Chơi",
+    "unlimitedPlayersDescription": "Không giới hạn số lượng! Càng nhiều người chơi tham gia, giải đấu càng thú vị.",
+    "roundRobin": "Định Dạng Vòng Tròn",
+    "roundRobinDescription": "Mỗi người chơi đối đầu với tất cả người chơi khác trong giải đấu. Đảm bảo công bằng tuyệt đối.",
+    "fheEncryption": "Mã Hóa FHE",
+    "fheEncryptionDescription": "Chiến thuật được mã hóa bằng Fully Homomorphic Encryption của Zama. Quyền riêng tư hoàn toàn cho đến khi công bố kết quả.",
+    "daoGovernance": "Quản Trị DAO",
+    "daoGovernanceDescription": "Giải đấu bắt đầu thông qua bỏ phiếu phi tập trung. Yêu cầu 50% quorum - mỗi người chơi có một phiếu!"
+  },
+  "footer": {
+    "builtWith": "Được xây dựng với",
+    "tagline": "Lý Thuyết Trò Chơi Ưu Tiên Quyền Riêng Tư"
+  }
+}

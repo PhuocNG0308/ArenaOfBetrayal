@@ -1,8 +1,9 @@
 'use client'
 
 import { usePrisonersDilemma } from '@/hooks/usePrisonersDilemma'
-import { Trophy, Users, Clock, Play, Loader2, AlertCircle } from 'lucide-react'
+import { Trophy, Users, Clock, Play, Loader2, AlertCircle, Coins } from 'lucide-react'
 import { useEffect, useState } from 'react'
+import { formatEther } from 'viem'
 
 const STATUS_LABELS = ['Registration', 'Countdown', 'Running', 'Finished']
 const STATUS_COLORS = [
@@ -67,7 +68,7 @@ export function TournamentInfo() {
         </span>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <div className="bg-gray-800/50 p-4 rounded-lg border border-gray-700">
           <div className="flex items-center gap-2 mb-2">
             <Users size={20} className="text-primary-400" />
@@ -75,6 +76,15 @@ export function TournamentInfo() {
           </div>
           <p className="text-3xl font-bold text-white">{String(tournamentData.playerCount)}</p>
           <p className="text-xs text-gray-500 mt-1">No limit - all welcome!</p>
+        </div>
+
+        <div className="bg-gray-800/50 p-4 rounded-lg border border-gray-700">
+          <div className="flex items-center gap-2 mb-2">
+            <Coins size={20} className="text-yellow-400" />
+            <p className="text-gray-400 text-sm">Prize Pool</p>
+          </div>
+          <p className="text-3xl font-bold text-yellow-400">{formatEther(tournamentData.prizePool)}</p>
+          <p className="text-xs text-gray-500 mt-1">ETH (Top 30% share)</p>
         </div>
 
         <div className="bg-gray-800/50 p-4 rounded-lg border border-gray-700">
