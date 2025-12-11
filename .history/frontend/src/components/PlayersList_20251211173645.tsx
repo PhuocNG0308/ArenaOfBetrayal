@@ -54,20 +54,21 @@ export function PlayersList() {
       <div className="flex items-center justify-between mb-6">
         <h2 className="text-2xl font-bold text-white flex items-center gap-2">
           <Users className="text-primary-500" />
-          {t('players.title')}
+          Tournament Participants
         </h2>
         <div className="px-4 py-2 bg-primary-900/50 rounded-lg border border-primary-700">
-          <span className="text-primary-300 font-bold">{t('players.count').replace('{{count}}', String(players.length))}</span>
+          <span className="text-primary-300 font-bold">{players.length} Players</span>
         </div>
       </div>
 
       <div className="bg-blue-900/20 border border-blue-700 p-4 rounded-lg mb-6">
         <div className="flex items-center gap-2 mb-2">
           <Shield className="text-blue-400" size={20} />
-          <h3 className="font-semibold text-blue-300">{t('players.fhePrivacy')}</h3>
+          <h3 className="font-semibold text-blue-300">FHE Privacy Protection</h3>
         </div>
         <p className="text-sm text-blue-200">
-          {t('players.fheDescription')}
+          All strategies are encrypted with Fully Homomorphic Encryption (FHE). You can see encrypted data on-chain, 
+          but the actual strategy remains hidden until the tournament completes!
         </p>
       </div>
 

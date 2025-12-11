@@ -265,7 +265,7 @@ export function CustomStrategyBuilder() {
 
               {/* Operator */}
               <div>
-                <label className="block text-xs text-gray-400 mb-1">{t('strategyBuilder.labels.condition')}</label>
+                <label className="block text-xs text-gray-400 mb-1">Condition</label>
                 <select
                   value={rule.operator}
                   onChange={(e) => updateRule(index, 'operator', parseInt(e.target.value))}
@@ -273,14 +273,14 @@ export function CustomStrategyBuilder() {
                   className="w-full bg-gray-700 border border-gray-600 text-white rounded px-3 py-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {Object.entries(OPERATORS).map(([key, label]) => (
-                    <option key={key} value={key}>{t(`strategyBuilder.operators.${label}`)}</option>
+                    <option key={key} value={key}>{label}</option>
                   ))}
                 </select>
               </div>
 
               {/* Value */}
               <div>
-                <label className="block text-xs text-gray-400 mb-1">{t('strategyBuilder.labels.value')}</label>
+                <label className="block text-xs text-gray-400 mb-1">Value</label>
                 <input
                   type="number"
                   value={rule.value}
@@ -294,7 +294,7 @@ export function CustomStrategyBuilder() {
 
               {/* Action */}
               <div>
-                <label className="block text-xs text-gray-400 mb-1">{t('strategyBuilder.labels.then')}</label>
+                <label className="block text-xs text-gray-400 mb-1">Then</label>
                 <select
                   value={rule.action}
                   onChange={(e) => updateRule(index, 'action', parseInt(e.target.value))}
@@ -302,7 +302,7 @@ export function CustomStrategyBuilder() {
                   className="w-full bg-gray-700 border border-gray-600 text-white rounded px-3 py-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {Object.entries(ACTIONS).map(([key, label]) => (
-                    <option key={key} value={key}>{t(`strategyBuilder.actions.${label}`)}</option>
+                    <option key={key} value={key}>{label}</option>
                   ))}
                 </select>
               </div>

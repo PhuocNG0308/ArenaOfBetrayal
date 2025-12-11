@@ -34,7 +34,7 @@ export function TournamentInfo() {
       <div className="bg-gray-900/50 border border-gray-700 rounded-xl p-6 backdrop-blur-sm">
         <div className="flex items-center gap-3">
           <Loader2 className="animate-spin text-primary-500" size={24} />
-          <p className="text-gray-400">{t('common.initializing')}</p>
+          <p className="text-gray-400">Initializing...</p>
         </div>
       </div>
     )
@@ -45,17 +45,17 @@ export function TournamentInfo() {
       <div className="bg-gray-900/50 border border-gray-700 rounded-xl p-6 backdrop-blur-sm">
         <div className="flex items-center gap-3 mb-4">
           <Loader2 className="animate-spin text-primary-500" size={24} />
-          <p className="text-gray-400">{t('common.loading')}</p>
+          <p className="text-gray-400">Loading tournament data from blockchain...</p>
         </div>
         <div className="bg-yellow-900/20 border border-yellow-700 p-4 rounded-lg">
           <div className="flex items-center gap-2 mb-2">
             <AlertCircle className="text-yellow-400" size={18} />
-            <p className="text-yellow-300 text-sm font-semibold">{t('common.connectionTips')}</p>
+            <p className="text-yellow-300 text-sm font-semibold">Connection Tips:</p>
           </div>
           <ul className="text-yellow-200 text-xs space-y-1 ml-6 list-disc">
-            <li>{t('common.metaMaskTip')}</li>
-            <li>{t('common.contractTip')}</li>
-            <li>{t('common.internetTip')}</li>
+            <li>Make sure MetaMask is connected to Sepolia Testnet</li>
+            <li>Check if contract address is correct in .env.local</li>
+            <li>Verify you have a stable internet connection</li>
           </ul>
         </div>
       </div>

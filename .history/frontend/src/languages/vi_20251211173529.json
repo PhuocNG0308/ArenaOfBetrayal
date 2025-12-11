@@ -126,15 +126,6 @@
     "fhePrivacy": "Bảo Vệ Quyền Riêng Tư FHE",
     "fheDescription": "Tất cả chiến thuật được mã hóa bằng Mã hóa Đồng cấu Hoàn toàn (FHE). Bạn có thể thấy dữ liệu mã hóa trên chuỗi, nhưng chiến thuật thực sự vẫn bị ẩn cho đến khi giải đấu kết thúc!"
   },
-  "leaderboard": {
-    "title": "Bảng Xếp Hạng",
-    "results": "Kết Quả Giải Đấu",
-    "waiting": "Kết quả giải đấu sẽ xuất hiện ở đây sau khi kết thúc",
-    "champion": "Nhà Vô Địch",
-    "runnerUp": "Á Quân",
-    "thirdPlace": "Hạng Ba",
-    "points": "điểm"
-  },
   "strategyBuilder": {
     "subjects": {
       "RoundNumber": "Số Vòng",

@@ -60,13 +60,14 @@ export function CustomStrategyBuilder() {
   }, [isConfirmed, refetchStrategy, refetchTournament])
 
   const hasSubmitted = strategy?.isSubmitted
-  
+  const MAX_RULES = 10 // Match contract constant
   const addRule = () => {
     if (rules.length >= MAX_RULES) {
       alert(t('strategy.maxRules').replace('{{count}}', String(MAX_RULES)))
       return
     }
     setRules([...rules, { subject: 0, operator: 0, value: 0, action: 0 }])
+  }
   }
 
   const removeRule = (index: number) => {
@@ -88,19 +89,18 @@ export function CustomStrategyBuilder() {
     try {
       const hash = await submitStrategy(rules, defaultAction)
       setTxHash(hash)
-      // Note: Consider using a toast notification library instead of alert for better UX
-      // alert(t('strategy.waitingConfirmation')) 
+      alert(t('strategy.waitingConfirmation'))
     } catch (error: unknown) {
       console.error(error)
       const errorMsg = error instanceof Error ? error.message : 'Unknown error'
       
       // Better error messages
       if (errorMsg.includes('insufficient funds')) {
-        alert('❌ ' + t('strategyBuilder.errors.insufficientFunds'))
+        alert('❌ Insufficient ETH. You need at least 0.01 ETH + gas fees.')
       } else if (errorMsg.includes('user rejected')) {
-        alert(t('strategyBuilder.errors.userRejected'))
+        alert('Transaction cancelled by user')
       } else if (errorMsg.includes('gas')) {
-        alert('❌ ' + t('strategyBuilder.errors.gasFailed'))
+        alert('❌ Gas estimation failed. Try with fewer rules or contact support.')
       } else {
         alert(`Error: ${errorMsg}`)
       }
@@ -158,13 +158,13 @@ export function CustomStrategyBuilder() {
                     <span className="text-xs font-semibold text-gray-400">{t('strategy.rule')} #{index + 1}</span>
                   </div>
                   <div className="text-sm text-gray-200">
-                    <span className="text-blue-400">{t('strategyBuilder.labels.if')}</span>{' '}
-                    <span className="font-semibold text-white">{t(`strategyBuilder.subjects.${SUBJECTS[rule.subject as keyof typeof SUBJECTS]}`)}</span>{' '}
-                    <span className="text-blue-400">{t(`strategyBuilder.operators.${OPERATORS[rule.operator as keyof typeof OPERATORS]}`)}</span>{' '}
+                    <span className="text-blue-400">If</span>{' '}
+                    <span className="font-semibold text-white">{SUBJECTS[rule.subject as keyof typeof SUBJECTS]}</span>{' '}
+                    <span className="text-blue-400">{OPERATORS[rule.operator as keyof typeof OPERATORS]}</span>{' '}
                     <span className="font-semibold text-white">{rule.value}</span>{' '}
-                    <span className="text-blue-400">{t('strategyBuilder.labels.then')}</span>{' '}
+                    <span className="text-blue-400">then</span>{' '}
                     <span className={`font-semibold ${rule.action === 0 ? 'text-success-400' : 'text-danger-400'}`}>
-                      {t(`strategyBuilder.actions.${ACTIONS[rule.action as keyof typeof ACTIONS]}`)}
+                      {ACTIONS[rule.action as keyof typeof ACTIONS]}
                     </span>
                   </div>
                 </div>
@@ -185,7 +185,7 @@ export function CustomStrategyBuilder() {
               <span className={`font-semibold ${
                 submittedDefaultAction === 0 ? 'text-success-300' : 'text-danger-300'
               }`}>
-                {t(`strategyBuilder.actions.${ACTIONS[submittedDefaultAction as keyof typeof ACTIONS]}`)}
+                {ACTIONS[submittedDefaultAction as keyof typeof ACTIONS]}
               </span>
             </div>
           </div>
@@ -237,8 +237,6 @@ export function CustomStrategyBuilder() {
           <div key={index} className="bg-gray-800/50 border border-gray-700 rounded-lg p-4">
             <div className="flex items-center justify-between mb-3">
               <span className="text-gray-400 text-sm font-semibold">{t('strategy.rule')} #{index + 1}</span>
-              {/* FIXED: Added opening <button> tag */}
-              <button
                 onClick={() => removeRule(index)}
                 disabled={loading || isConfirming}
                 className="text-danger-400 hover:text-danger-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
@@ -250,7 +248,7 @@ export function CustomStrategyBuilder() {
             <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
               {/* Subject */}
               <div>
-                <label className="block text-xs text-gray-400 mb-1">{t('strategyBuilder.labels.if')}</label>
+                <label className="block text-xs text-gray-400 mb-1">If</label>
                 <select
                   value={rule.subject}
                   onChange={(e) => updateRule(index, 'subject', parseInt(e.target.value))}
@@ -258,14 +256,14 @@ export function CustomStrategyBuilder() {
                   className="w-full bg-gray-700 border border-gray-600 text-white rounded px-3 py-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {Object.entries(SUBJECTS).map(([key, label]) => (
-                    <option key={key} value={key}>{t(`strategyBuilder.subjects.${label}`)}</option>
+                    <option key={key} value={key}>{label}</option>
                   ))}
                 </select>
               </div>
 
               {/* Operator */}
               <div>
-                <label className="block text-xs text-gray-400 mb-1">{t('strategyBuilder.labels.condition')}</label>
+                <label className="block text-xs text-gray-400 mb-1">Condition</label>
                 <select
                   value={rule.operator}
                   onChange={(e) => updateRule(index, 'operator', parseInt(e.target.value))}
@@ -273,14 +271,14 @@ export function CustomStrategyBuilder() {
                   className="w-full bg-gray-700 border border-gray-600 text-white rounded px-3 py-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {Object.entries(OPERATORS).map(([key, label]) => (
-                    <option key={key} value={key}>{t(`strategyBuilder.operators.${label}`)}</option>
+                    <option key={key} value={key}>{label}</option>
                   ))}
                 </select>
               </div>
 
               {/* Value */}
               <div>
-                <label className="block text-xs text-gray-400 mb-1">{t('strategyBuilder.labels.value')}</label>
+                <label className="block text-xs text-gray-400 mb-1">Value</label>
                 <input
                   type="number"
                   value={rule.value}
@@ -294,7 +292,7 @@ export function CustomStrategyBuilder() {
 
               {/* Action */}
               <div>
-                <label className="block text-xs text-gray-400 mb-1">{t('strategyBuilder.labels.then')}</label>
+                <label className="block text-xs text-gray-400 mb-1">Then</label>
                 <select
                   value={rule.action}
                   onChange={(e) => updateRule(index, 'action', parseInt(e.target.value))}
@@ -302,7 +300,7 @@ export function CustomStrategyBuilder() {
                   className="w-full bg-gray-700 border border-gray-600 text-white rounded px-3 py-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {Object.entries(ACTIONS).map(([key, label]) => (
-                    <option key={key} value={key}>{t(`strategyBuilder.actions.${label}`)}</option>
+                    <option key={key} value={key}>{label}</option>
                   ))}
                 </select>
               </div>
@@ -349,8 +347,6 @@ export function CustomStrategyBuilder() {
             {t('strategy.defect')}
           </button>
         </div>
-      </div> {/* FIXED: Added missing closing </div> tag */}
-
       {/* Submit Button */}
       <button
         onClick={handleSubmit}

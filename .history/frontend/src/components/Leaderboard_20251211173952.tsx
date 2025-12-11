@@ -63,14 +63,14 @@ function PlayerScoreRow({
           <p className="font-mono text-white">{formatAddress(address)}</p>
           {index < 3 && (
             <p className="text-xs text-gray-400">
-              {index === 0 ? t('leaderboard.champion') : index === 1 ? t('leaderboard.runnerUp') : t('leaderboard.thirdPlace')}
+              {index === 0 ? 'Champion' : index === 1 ? 'Runner-up' : 'Third Place'}
             </p>
           )}
         </div>
       </div>
       <div className="text-right">
         <p className="text-2xl font-bold text-white">{score?.toString() || '0'}</p>
-        <p className="text-xs text-gray-400">{t('leaderboard.points')}</p>
+        <p className="text-xs text-gray-400">points</p>
       </div>
     </div>
   )
@@ -78,7 +78,6 @@ function PlayerScoreRow({
 
 export function Leaderboard() {
   const { tournamentData } = usePrisonersDilemma()
-  const { t } = useLanguage()
 
   const { data: playersData } = useReadContract({
     address: CONTRACT_ADDRESS as `0x${string}`,
@@ -94,10 +93,10 @@ export function Leaderboard() {
       <div className="bg-gray-900/50 border border-gray-700 rounded-xl p-6 backdrop-blur-sm">
         <h2 className="text-2xl font-bold mb-4 text-white flex items-center gap-2">
           <Trophy className="text-yellow-500" />
-          {t('leaderboard.title')}
+          Leaderboard
         </h2>
         <p className="text-gray-400 text-center py-8">
-          {t('leaderboard.waiting')}
+          Tournament results will appear here after completion
         </p>
       </div>
     )
@@ -107,7 +106,7 @@ export function Leaderboard() {
     <div className="bg-gray-900/50 border border-gray-700 rounded-xl p-6 backdrop-blur-sm">
       <h2 className="text-2xl font-bold mb-6 text-white flex items-center gap-2">
         <Trophy className="text-yellow-500" />
-        {t('leaderboard.results')}
+        Tournament Results
       </h2>
       
       <div className="space-y-3">

@@ -60,11 +60,12 @@ export function CustomStrategyBuilder() {
   }, [isConfirmed, refetchStrategy, refetchTournament])
 
   const hasSubmitted = strategy?.isSubmitted
-  
+  const MAX_RULES = 10 // Match contract constant
   const addRule = () => {
     if (rules.length >= MAX_RULES) {
       alert(t('strategy.maxRules').replace('{{count}}', String(MAX_RULES)))
       return
+    } return
     }
     setRules([...rules, { subject: 0, operator: 0, value: 0, action: 0 }])
   }
@@ -88,19 +89,18 @@ export function CustomStrategyBuilder() {
     try {
       const hash = await submitStrategy(rules, defaultAction)
       setTxHash(hash)
-      // Note: Consider using a toast notification library instead of alert for better UX
-      // alert(t('strategy.waitingConfirmation')) 
+      alert(t('strategy.waitingConfirmation'))
     } catch (error: unknown) {
       console.error(error)
       const errorMsg = error instanceof Error ? error.message : 'Unknown error'
       
       // Better error messages
       if (errorMsg.includes('insufficient funds')) {
-        alert('❌ ' + t('strategyBuilder.errors.insufficientFunds'))
+        alert('❌ Insufficient ETH. You need at least 0.01 ETH + gas fees.')
       } else if (errorMsg.includes('user rejected')) {
-        alert(t('strategyBuilder.errors.userRejected'))
+        alert('Transaction cancelled by user')
       } else if (errorMsg.includes('gas')) {
-        alert('❌ ' + t('strategyBuilder.errors.gasFailed'))
+        alert('❌ Gas estimation failed. Try with fewer rules or contact support.')
       } else {
         alert(`Error: ${errorMsg}`)
       }
@@ -158,13 +158,13 @@ export function CustomStrategyBuilder() {
                     <span className="text-xs font-semibold text-gray-400">{t('strategy.rule')} #{index + 1}</span>
                   </div>
                   <div className="text-sm text-gray-200">
-                    <span className="text-blue-400">{t('strategyBuilder.labels.if')}</span>{' '}
-                    <span className="font-semibold text-white">{t(`strategyBuilder.subjects.${SUBJECTS[rule.subject as keyof typeof SUBJECTS]}`)}</span>{' '}
-                    <span className="text-blue-400">{t(`strategyBuilder.operators.${OPERATORS[rule.operator as keyof typeof OPERATORS]}`)}</span>{' '}
+                    <span className="text-blue-400">If</span>{' '}
+                    <span className="font-semibold text-white">{SUBJECTS[rule.subject as keyof typeof SUBJECTS]}</span>{' '}
+                    <span className="text-blue-400">{OPERATORS[rule.operator as keyof typeof OPERATORS]}</span>{' '}
                     <span className="font-semibold text-white">{rule.value}</span>{' '}
-                    <span className="text-blue-400">{t('strategyBuilder.labels.then')}</span>{' '}
+                    <span className="text-blue-400">then</span>{' '}
                     <span className={`font-semibold ${rule.action === 0 ? 'text-success-400' : 'text-danger-400'}`}>
-                      {t(`strategyBuilder.actions.${ACTIONS[rule.action as keyof typeof ACTIONS]}`)}
+                      {ACTIONS[rule.action as keyof typeof ACTIONS]}
                     </span>
                   </div>
                 </div>
@@ -185,7 +185,7 @@ export function CustomStrategyBuilder() {
               <span className={`font-semibold ${
                 submittedDefaultAction === 0 ? 'text-success-300' : 'text-danger-300'
               }`}>
-                {t(`strategyBuilder.actions.${ACTIONS[submittedDefaultAction as keyof typeof ACTIONS]}`)}
+                {ACTIONS[submittedDefaultAction as keyof typeof ACTIONS]}
               </span>
             </div>
           </div>
@@ -194,7 +194,8 @@ export function CustomStrategyBuilder() {
         {/* FHE Info */}
         <div className="mt-4 p-3 bg-primary-900/20 border border-primary-700 rounded-lg">
           <p className="text-xs text-primary-300">
-            🔐 {t('strategy.privacyNote')}
+            🔐 While you can view your own strategy here, it remains encrypted on-chain. 
+            Other players cannot see your strategy until the tournament ends.
           </p>
         </div>
       </div>
@@ -204,10 +205,10 @@ export function CustomStrategyBuilder() {
   return (
     <div className="bg-gray-900/50 border border-gray-700 rounded-xl p-6 backdrop-blur-sm">
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-2xl font-bold text-white">{t('strategy.title')}</h2>
+        <h2 className="text-2xl font-bold text-white">Build Your Strategy</h2>
         <div className="flex items-center gap-2 text-primary-400 text-sm">
           <Info size={16} />
-          <span>{t('strategy.encrypted')}</span>
+          <span>FHE Encrypted</span>
         </div>
       </div>
 
@@ -216,18 +217,20 @@ export function CustomStrategyBuilder() {
         <div className="flex items-start gap-3">
           <Coins className="text-orange-400 mt-0.5 flex-shrink-0" size={20} />
           <div>
-            <h3 className="font-semibold text-orange-200 mb-1">{t('strategy.entryFeeTitle')}</h3>
+            <h3 className="font-semibold text-orange-200 mb-1">Entry Fee Required</h3>
             <p className="text-sm text-orange-300">
-              {t('strategy.entryFeeDescription')}
+              You need to pay <span className="font-bold">0.01 ETH</span> to submit your strategy and join the tournament.
+              Top 30% of players will share the prize pool!
             </p>
           </div>
         </div>
       </div>
 
       <div className="bg-blue-900/20 border border-blue-700 p-4 rounded-lg mb-6">
-        <h3 className="font-semibold text-blue-300 mb-2">{t('strategy.howItWorks')}</h3>
+        <h3 className="font-semibold text-blue-300 mb-2">How it works</h3>
         <p className="text-sm text-blue-200">
-          {t('strategy.howItWorksDescription')}
+          Create conditional rules for your strategy. Each rule checks a condition and performs an action.
+          Rules are evaluated in order. If no rule matches, the default action is used.
         </p>
       </div>
 
@@ -236,8 +239,7 @@ export function CustomStrategyBuilder() {
         {rules.map((rule, index) => (
           <div key={index} className="bg-gray-800/50 border border-gray-700 rounded-lg p-4">
             <div className="flex items-center justify-between mb-3">
-              <span className="text-gray-400 text-sm font-semibold">{t('strategy.rule')} #{index + 1}</span>
-              {/* FIXED: Added opening <button> tag */}
+              <span className="text-gray-400 text-sm font-semibold">Rule #{index + 1}</span>
               <button
                 onClick={() => removeRule(index)}
                 disabled={loading || isConfirming}
@@ -250,7 +252,7 @@ export function CustomStrategyBuilder() {
             <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
               {/* Subject */}
               <div>
-                <label className="block text-xs text-gray-400 mb-1">{t('strategyBuilder.labels.if')}</label>
+                <label className="block text-xs text-gray-400 mb-1">If</label>
                 <select
                   value={rule.subject}
                   onChange={(e) => updateRule(index, 'subject', parseInt(e.target.value))}
@@ -258,14 +260,14 @@ export function CustomStrategyBuilder() {
                   className="w-full bg-gray-700 border border-gray-600 text-white rounded px-3 py-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {Object.entries(SUBJECTS).map(([key, label]) => (
-                    <option key={key} value={key}>{t(`strategyBuilder.subjects.${label}`)}</option>
+                    <option key={key} value={key}>{label}</option>
                   ))}
                 </select>
               </div>
 
               {/* Operator */}
               <div>
-                <label className="block text-xs text-gray-400 mb-1">{t('strategyBuilder.labels.condition')}</label>
+                <label className="block text-xs text-gray-400 mb-1">Condition</label>
                 <select
                   value={rule.operator}
                   onChange={(e) => updateRule(index, 'operator', parseInt(e.target.value))}
@@ -273,14 +275,14 @@ export function CustomStrategyBuilder() {
                   className="w-full bg-gray-700 border border-gray-600 text-white rounded px-3 py-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {Object.entries(OPERATORS).map(([key, label]) => (
-                    <option key={key} value={key}>{t(`strategyBuilder.operators.${label}`)}</option>
+                    <option key={key} value={key}>{label}</option>
                   ))}
                 </select>
               </div>
 
               {/* Value */}
               <div>
-                <label className="block text-xs text-gray-400 mb-1">{t('strategyBuilder.labels.value')}</label>
+                <label className="block text-xs text-gray-400 mb-1">Value</label>
                 <input
                   type="number"
                   value={rule.value}
@@ -294,7 +296,7 @@ export function CustomStrategyBuilder() {
 
               {/* Action */}
               <div>
-                <label className="block text-xs text-gray-400 mb-1">{t('strategyBuilder.labels.then')}</label>
+                <label className="block text-xs text-gray-400 mb-1">Then</label>
                 <select
                   value={rule.action}
                   onChange={(e) => updateRule(index, 'action', parseInt(e.target.value))}
@@ -302,7 +304,7 @@ export function CustomStrategyBuilder() {
                   className="w-full bg-gray-700 border border-gray-600 text-white rounded px-3 py-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {Object.entries(ACTIONS).map(([key, label]) => (
-                    <option key={key} value={key}>{t(`strategyBuilder.actions.${label}`)}</option>
+                    <option key={key} value={key}>{label}</option>
                   ))}
                 </select>
               </div>
@@ -316,14 +318,14 @@ export function CustomStrategyBuilder() {
           className="w-full flex items-center justify-center gap-2 py-3 border-2 border-dashed border-gray-600 hover:border-primary-500 text-gray-400 hover:text-primary-400 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <Plus size={20} />
-          {rules.length >= MAX_RULES ? t('strategy.maxRules').replace('{{count}}', String(MAX_RULES)) : t('strategy.addRule')}
+          {rules.length >= MAX_RULES ? `Max ${MAX_RULES} Rules` : 'Add Rule'}
         </button>
       </div>
 
       {/* Default Action */}
       <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-4 mb-6">
         <label className="block text-sm text-gray-400 mb-2">
-          {t('strategy.defaultAction')}
+          Default Action (when no rules match)
         </label>
         <div className="flex gap-4">
           <button
@@ -335,7 +337,7 @@ export function CustomStrategyBuilder() {
                 : 'border-gray-600 bg-gray-700/50 text-gray-400 hover:border-gray-500'
             }`}
           >
-            {t('strategy.cooperate')}
+            Cooperate
           </button>
           <button
             onClick={() => setDefaultAction(1)}
@@ -346,10 +348,10 @@ export function CustomStrategyBuilder() {
                 : 'border-gray-600 bg-gray-700/50 text-gray-400 hover:border-gray-500'
             }`}
           >
-            {t('strategy.defect')}
+            Defect
           </button>
         </div>
-      </div> {/* FIXED: Added missing closing </div> tag */}
+      </div>
 
       {/* Submit Button */}
       <button
@@ -360,12 +362,12 @@ export function CustomStrategyBuilder() {
         {loading || isConfirming ? (
           <>
             <Loader2 className="animate-spin" size={20} />
-            {isConfirming ? t('strategy.waitingConfirmation') : t('strategy.submitting')}
+            {isConfirming ? 'Waiting for Confirmation...' : 'Submitting...'}
           </>
         ) : (
           <>
             <Coins size={20} />
-            {t('strategy.submitButton')}
+            Submit Strategy (0.01 ETH)
           </>
         )}
       </button>
@@ -373,7 +375,8 @@ export function CustomStrategyBuilder() {
       {/* Info */}
       <div className="mt-4 p-3 bg-primary-900/20 border border-primary-700 rounded-lg">
         <p className="text-xs text-primary-300">
-          🔐 {t('strategy.encryptionNote')}
+          🔐 Your strategy will be encrypted using Zama FHE (Fully Homomorphic Encryption) before being stored on-chain.
+          Complete privacy guaranteed - even the owner cannot see strategies until tournament reveal!
         </p>
       </div>
     </div>

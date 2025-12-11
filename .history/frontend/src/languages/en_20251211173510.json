@@ -126,15 +126,6 @@
     "fhePrivacy": "FHE Privacy Protection",
     "fheDescription": "All strategies are encrypted with Fully Homomorphic Encryption (FHE). You can see encrypted data on-chain, but the actual strategy remains hidden until the tournament completes!"
   },
-  "leaderboard": {
-    "title": "Leaderboard",
-    "results": "Tournament Results",
-    "waiting": "Tournament results will appear here after completion",
-    "champion": "Champion",
-    "runnerUp": "Runner-up",
-    "thirdPlace": "Third Place",
-    "points": "points"
-  },
   "strategyBuilder": {
     "subjects": {
       "RoundNumber": "Round Number",

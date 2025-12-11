@@ -94,10 +94,10 @@ export function Leaderboard() {
       <div className="bg-gray-900/50 border border-gray-700 rounded-xl p-6 backdrop-blur-sm">
         <h2 className="text-2xl font-bold mb-4 text-white flex items-center gap-2">
           <Trophy className="text-yellow-500" />
-          {t('leaderboard.title')}
+          Leaderboard
         </h2>
         <p className="text-gray-400 text-center py-8">
-          {t('leaderboard.waiting')}
+          Tournament results will appear here after completion
         </p>
       </div>
     )
@@ -107,7 +107,7 @@ export function Leaderboard() {
     <div className="bg-gray-900/50 border border-gray-700 rounded-xl p-6 backdrop-blur-sm">
       <h2 className="text-2xl font-bold mb-6 text-white flex items-center gap-2">
         <Trophy className="text-yellow-500" />
-        {t('leaderboard.results')}
+        Tournament Results
       </h2>
       
       <div className="space-y-3">
