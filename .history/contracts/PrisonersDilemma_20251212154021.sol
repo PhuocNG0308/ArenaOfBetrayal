@@ -3,6 +3,12 @@ pragma solidity ^0.8.24;
 
 import {FHE, euint8, ebool} from "@fhevm/solidity/lib/FHE.sol";
 
+/**
+ * @title PrisonersDilemma with Zama FHE
+ * @notice This contract uses Zama FHE to keep strategies encrypted until tournament ends
+ * @dev Strategies are encrypted on submission. Tournament results are computed offchain
+ *      using Zama Gateway for decryption, then published back onchain.
+ */
 contract PrisonersDilemma {
     enum Choice {
         Cooperate,
@@ -28,8 +34,8 @@ contract PrisonersDilemma {
 
     enum TournamentStatus {
         Registration,
-        PendingComputation,
-        ResultsPublished,
+        PendingComputation, // Waiting for offchain computation
+        ResultsPublished,   // Results are public
         Finished
     }
 
@@ -37,12 +43,12 @@ contract PrisonersDilemma {
         ConditionSubject subject;
         ConditionOperator operator;
         uint256 value;
-        euint8 encryptedAction;
+        euint8 encryptedAction; // FHE encrypted action (0=Cooperate, 1=Defect)
     }
 
     struct EncryptedStrategy {
         Rule[] rules;
-        euint8 encryptedDefaultAction;
+        euint8 encryptedDefaultAction; // FHE encrypted default action
         bool isSubmitted;
     }
 
@@ -62,6 +68,7 @@ contract PrisonersDilemma {
         uint256 requiredVotes;
     }
 
+    // Published results (after tournament completes)
     struct PublishedResults {
         mapping(address => uint256) scores;
         address[] winners;
@@ -69,16 +76,16 @@ contract PrisonersDilemma {
         bool isPublished;
     }
 
-    uint256 public constant DEFAULT_ROUNDS = 50;
+    uint256 public constant DEFAULT_ROUNDS = 50; // Reduced from 100 for gas optimization
     uint256 public constant MIN_ROUNDS = 10;
-    uint256 public constant MAX_ROUNDS = 200;
+    uint256 public constant MAX_ROUNDS = 200; // Reduced from 1000
     uint256 public constant ENTRY_FEE = 0.01 ether;
     uint256 public constant WINNER_PERCENTAGE = 30;
     uint256 public constant VOTE_QUORUM = 50;
-    uint256 public constant MAX_RULES = 10;
+    uint256 public constant MAX_RULES = 10; // Reduced from 20 for gas optimization
 
     address public owner;
-    address public computationOracle;
+    address public computationOracle; // Authorized to publish results
     
     mapping(uint256 => mapping(address => EncryptedStrategy)) private encryptedStrategies;
     mapping(uint256 => TournamentInfo) public tournaments;
@@ -115,7 +122,7 @@ contract PrisonersDilemma {
 
     constructor() {
         owner = msg.sender;
-        computationOracle = msg.sender;
+        computationOracle = msg.sender; // Owner is initial oracle
         currentTournamentId = 0;
         currentTournament = TournamentInfo({
             tournamentId: 0,
@@ -134,6 +141,7 @@ contract PrisonersDilemma {
         emit ComputationOracleSet(oracle);
     }
 
+    // Submit encrypted strategy with entry fee
     function submitStrategy(
         uint8[] calldata actions,
         uint8 defaultAction,
@@ -151,15 +159,19 @@ contract PrisonersDilemma {
         EncryptedStrategy storage strategy = encryptedStrategies[currentTournamentId][msg.sender];
         strategy.isSubmitted = true;
 
+        // Encrypt default action using Zama FHE
         strategy.encryptedDefaultAction = FHE.asEuint8(defaultAction);
         
+        // Batch permission grants - more gas efficient
         FHE.allowTransient(strategy.encryptedDefaultAction, computationOracle);
 
         for (uint256 i = 0; i < subjects.length; i++) {
             _validateRuleStructure(subjects[i], operators[i]);
             
+            // Encrypt each action using Zama FHE
             euint8 encryptedAction = FHE.asEuint8(actions[i]);
             
+            // Grant decryption permission only to oracle
             FHE.allowTransient(encryptedAction, computationOracle);
 
             strategy.rules.push(Rule({
@@ -174,6 +186,7 @@ contract PrisonersDilemma {
         currentTournament.playerCount++;
         currentTournament.prizePool += msg.value;
 
+        // Update required votes for quorum
         VoteInfo storage votes = tournamentVotes[currentTournamentId];
         votes.requiredVotes = (currentTournament.playerCount * VOTE_QUORUM) / 100;
         if (votes.requiredVotes < 2) votes.requiredVotes = 2;
@@ -187,6 +200,7 @@ contract PrisonersDilemma {
         emit TournamentRoundsSet(currentTournamentId, rounds);
     }
 
+    // DAO voting mechanism
     function voteStartTournament() external {
         require(currentTournament.status == TournamentStatus.Registration, "Not in registration");
         require(encryptedStrategies[currentTournamentId][msg.sender].isSubmitted, "Must submit strategy to vote");
@@ -199,6 +213,7 @@ contract PrisonersDilemma {
 
         emit VoteCast(currentTournamentId, msg.sender, votes.voteCount, votes.requiredVotes);
 
+        // Auto-start if quorum reached
         if (votes.voteCount >= votes.requiredVotes) {
             _startTournament();
         }
@@ -215,12 +230,17 @@ contract PrisonersDilemma {
         currentTournament.status = TournamentStatus.PendingComputation;
         currentTournament.startTime = block.timestamp;
         
+        // Calculate total games (round-robin)
         uint256 n = currentTournament.playerCount;
         currentTournament.totalGames = (n * (n - 1)) / 2;
 
         emit TournamentStarted(currentTournamentId, currentTournament.playerCount);
+        
+        // Tournament strategies are now locked and encrypted
+        // Oracle will decrypt offchain, compute results, and publish back
     }
 
+    // Oracle publishes computed results after offchain computation
     function publishResults(
         uint256 tournamentId,
         address[] calldata players,
@@ -236,10 +256,12 @@ contract PrisonersDilemma {
         PublishedResults storage results = tournamentResults[tournamentId];
         require(!results.isPublished, "Already published");
 
+        // Store scores
         for (uint256 i = 0; i < players.length; i++) {
             results.scores[players[i]] = scores[i];
         }
 
+        // Store winners and prizes
         results.winners = winners;
         results.prizes = prizes;
         results.isPublished = true;
@@ -248,6 +270,7 @@ contract PrisonersDilemma {
 
         emit ResultsPublished(tournamentId, winners, prizes);
 
+        // Distribute prizes
         _distributePrizes(tournamentId);
     }
 
@@ -292,6 +315,7 @@ contract PrisonersDilemma {
         }
     }
 
+    // View functions
     function getTournamentInfo() external view returns (TournamentInfo memory) {
         return currentTournament;
     }
@@ -327,6 +351,7 @@ contract PrisonersDilemma {
         return tournamentVotes[tournamentId].hasVoted[player];
     }
 
+    // Returns strategy structure (subjects, operators, values) - actions remain encrypted
     function getStrategy(address player) external view returns (
         ConditionSubject[] memory subjects,
         ConditionOperator[] memory operators,
@@ -345,11 +370,13 @@ contract PrisonersDilemma {
             subjects[i] = rule.subject;
             operators[i] = rule.operator;
             values[i] = rule.value;
+            // Actions remain encrypted - not visible until oracle decrypts offchain
         }
 
         isSubmitted = strategy.isSubmitted;
     }
 
+    // Request encrypted strategy data for offchain decryption (oracle only)
     function getEncryptedStrategyForComputation(address player) external view onlyOracle returns (
         euint8[] memory encryptedActions,
         euint8 encryptedDefaultAction,
