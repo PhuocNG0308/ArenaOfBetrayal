@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import {FHE, euint8, ebool} from "@fhevm/solidity/lib/FHE.sol";
+interface IInputVerifier {
+    function verify(address user, bytes calldata inputProof) external returns (uint256[] memory handles);
+}
 
 contract PrisonersDilemma {
     enum Choice {
@@ -37,12 +39,11 @@ contract PrisonersDilemma {
         ConditionSubject subject;
         ConditionOperator operator;
         uint256 value;
-        euint8 encryptedAction;
     }
 
     struct EncryptedStrategy {
         Rule[] rules;
-        euint8 encryptedDefaultAction;
+        uint256 encryptedActions; // Packed Handle: [Default(8)][Rule0(8)][Rule1(8)]...
         bool isSubmitted;
     }
 
@@ -79,6 +80,7 @@ contract PrisonersDilemma {
 
     address public owner;
     address public computationOracle;
+    address public inputVerifier;
     
     mapping(uint256 => mapping(address => EncryptedStrategy)) private encryptedStrategies;
     mapping(uint256 => TournamentInfo) public tournaments;
@@ -96,6 +98,7 @@ contract PrisonersDilemma {
     event ResultsPublished(uint256 indexed tournamentId, address[] winners, uint256[] prizes);
     event TournamentFinished(uint256 indexed tournamentId);
     event ComputationOracleSet(address indexed oracle);
+    event InputVerifierSet(address indexed verifier);
     event TournamentRoundsSet(uint256 indexed tournamentId, uint256 rounds);
 
     modifier onlyOwner() {
@@ -113,9 +116,10 @@ contract PrisonersDilemma {
         _;
     }
 
-    constructor() {
+    constructor(address _inputVerifier) {
         owner = msg.sender;
         computationOracle = msg.sender;
+        inputVerifier = _inputVerifier;
         currentTournamentId = 0;
         currentTournament = TournamentInfo({
             tournamentId: 0,
@@ -134,39 +138,42 @@ contract PrisonersDilemma {
         emit ComputationOracleSet(oracle);
     }
 
+    function setInputVerifier(address verifier) external onlyOwner {
+        require(verifier != address(0), "Invalid verifier");
+        inputVerifier = verifier;
+        emit InputVerifierSet(verifier);
+    }
+
     function submitStrategy(
-        uint8[] calldata actions,
-        uint8 defaultAction,
+        bytes calldata inputProof,
         ConditionSubject[] calldata subjects,
         ConditionOperator[] calldata operators,
         uint256[] calldata values
     ) external payable onlyRegistration {
         require(msg.value >= ENTRY_FEE, "Insufficient entry fee");
-        require(subjects.length == operators.length && operators.length == values.length && values.length == actions.length, "Mismatched arrays");
+        require(subjects.length == operators.length && operators.length == values.length, "Mismatched arrays");
         require(subjects.length <= MAX_RULES, "Too many rules");
         require(!encryptedStrategies[currentTournamentId][msg.sender].isSubmitted, "Strategy already submitted");
+
+        // Verify input proof and get handles
+        // Expected order: [packedActions]
+        uint256[] memory handles = IInputVerifier(inputVerifier).verify(msg.sender, inputProof);
+        require(handles.length == 1, "Invalid input proof length");
 
         delete encryptedStrategies[currentTournamentId][msg.sender].rules;
 
         EncryptedStrategy storage strategy = encryptedStrategies[currentTournamentId][msg.sender];
         strategy.isSubmitted = true;
 
-        strategy.encryptedDefaultAction = FHE.asEuint8(defaultAction);
+        strategy.encryptedActions = handles[0];
         
-        FHE.allowTransient(strategy.encryptedDefaultAction, computationOracle);
-
         for (uint256 i = 0; i < subjects.length; i++) {
             _validateRuleStructure(subjects[i], operators[i]);
             
-            euint8 encryptedAction = FHE.asEuint8(actions[i]);
-            
-            FHE.allowTransient(encryptedAction, computationOracle);
-
             strategy.rules.push(Rule({
                 subject: subjects[i],
                 operator: operators[i],
-                value: values[i],
-                encryptedAction: encryptedAction
+                value: values[i]
             }));
         }
 
@@ -351,8 +358,7 @@ contract PrisonersDilemma {
     }
 
     function getEncryptedStrategyForComputation(address player) external view onlyOracle returns (
-        euint8[] memory encryptedActions,
-        euint8 encryptedDefaultAction,
+        uint256 encryptedActions,
         ConditionSubject[] memory subjects,
         ConditionOperator[] memory operators,
         uint256[] memory values
@@ -361,19 +367,17 @@ contract PrisonersDilemma {
         require(strategy.isSubmitted, "No strategy submitted");
         
         uint256 rulesLength = strategy.rules.length;
-        encryptedActions = new euint8[](rulesLength);
         subjects = new ConditionSubject[](rulesLength);
         operators = new ConditionOperator[](rulesLength);
         values = new uint256[](rulesLength);
         
         for (uint256 i = 0; i < rulesLength; i++) {
-            encryptedActions[i] = strategy.rules[i].encryptedAction;
             subjects[i] = strategy.rules[i].subject;
             operators[i] = strategy.rules[i].operator;
             values[i] = strategy.rules[i].value;
         }
         
-        encryptedDefaultAction = strategy.encryptedDefaultAction;
+        encryptedActions = strategy.encryptedActions;
     }
 
     receive() external payable {}

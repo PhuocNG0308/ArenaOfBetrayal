@@ -7,6 +7,7 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
 
   const deployed = await deploy("PrisonersDilemma", {
     from: deployer,
+    args: ["0xBBC1fFCdc7C316aAAd72E807D9b0272BE8F84DA0"], // InputVerifier address on Sepolia
     log: true,
     gasLimit: 8000000, // Set explicit gas limit for FHE operations
   });

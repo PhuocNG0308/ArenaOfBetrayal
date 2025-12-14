@@ -110,9 +110,7 @@ export function CustomStrategyBuilder() {
       subject: subject,
       operator: strategy.operators[i],
       value: Number(strategy.values[i]),
-      action: strategy.actions[i]
     }))
-    const submittedDefaultAction = strategy.defaultAction
 
     return (
       <div className="bg-gray-900/50 border border-gray-700 rounded-xl p-6 backdrop-blur-sm">
@@ -160,8 +158,8 @@ export function CustomStrategyBuilder() {
                     <span className="text-blue-400">{t(`strategyBuilder.operators.${OPERATORS[rule.operator as keyof typeof OPERATORS]}`)}</span>{' '}
                     <span className="font-semibold text-white">{rule.value}</span>{' '}
                     <span className="text-blue-400">{t('strategyBuilder.labels.then')}</span>{' '}
-                    <span className={`font-semibold ${rule.action === 0 ? 'text-success-400' : 'text-danger-400'}`}>
-                      {t(`strategyBuilder.actions.${ACTIONS[rule.action as keyof typeof ACTIONS]}`)}
+                    <span className="font-semibold text-purple-400">
+                      {t('strategy.encrypted')}
                     </span>
                   </div>
                 </div>
@@ -174,16 +172,8 @@ export function CustomStrategyBuilder() {
           {/* Default Action */}
           <div className="bg-gray-700/50 border border-gray-600 rounded-lg p-4">
             <p className="text-xs text-gray-400 mb-2">{t('strategy.defaultAction')}</p>
-            <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg ${
-              submittedDefaultAction === 0
-                ? 'bg-success-900/30 border border-success-700'
-                : 'bg-danger-900/30 border border-danger-700'
-            }`}>
-              <span className={`font-semibold ${
-                submittedDefaultAction === 0 ? 'text-success-300' : 'text-danger-300'
-              }`}>
-                {t(`strategyBuilder.actions.${ACTIONS[submittedDefaultAction as keyof typeof ACTIONS]}`)}
-              </span>
+            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-purple-900/30 border border-purple-700">
+              <span className="text-purple-200 font-medium">{t('strategy.encrypted')}</span>
             </div>
           </div>
         </div>

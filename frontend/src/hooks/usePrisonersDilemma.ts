@@ -1,7 +1,10 @@
 import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt } from 'wagmi'
 import { CONTRACT_ADDRESS } from '@/config/constants'
 import PrisonersDilemmaABI from '@/contracts/PrisonersDilemma.json'
-import { parseEther } from 'viem'
+import { parseEther, toHex } from 'viem'
+import type { FhevmInstance } from '@zama-fhe/relayer-sdk/web'
+import { useEffect, useState } from 'react'
+import { useEthersSigner } from './useEthersSigner'
 
 export interface TournamentData {
   tournamentId: bigint
@@ -18,8 +21,6 @@ export interface StrategyData {
   subjects: number[]
   operators: number[]
   values: bigint[]
-  actions: number[]
-  defaultAction: number
   isSubmitted: boolean
 }
 
@@ -29,8 +30,42 @@ export interface VoteInfo {
 }
 
 export function usePrisonersDilemma() {
-  const { address } = useAccount()
+  const { address, chainId } = useAccount()
+  const signer = useEthersSigner()
   const { writeContractAsync } = useWriteContract()
+  const [fhevmInstance, setFhevmInstance] = useState<FhevmInstance | null>(null)
+
+  useEffect(() => {
+    const initFhevm = async () => {
+      if (!signer) {
+        console.log("FHEVM Init: Signer not ready");
+        return;
+      }
+      if (chainId !== 11155111) {
+        console.log("FHEVM Init: Wrong chain ID", chainId);
+        return;
+      }
+
+      try {
+        console.log("FHEVM Init: Starting initialization...");
+        const { createInstance, SepoliaConfig, initSDK } = await import('@zama-fhe/relayer-sdk/web');
+        
+        await initSDK();
+        console.log("FHEVM Init: SDK initialized (WASM loaded)");
+
+        const instance = await createInstance({
+          ...SepoliaConfig,
+          network: (window as any).ethereum || SepoliaConfig.network
+        });
+
+        console.log("FHEVM Init: Instance created successfully", instance);
+        setFhevmInstance(instance);
+      } catch (e) {
+        console.error("Failed to init FHEVM instance:", e);
+      }
+    };
+    initFhevm();
+  }, [signer, chainId]);
 
   const { data: tournamentInfo, refetch: refetchTournament } = useReadContract({
     address: CONTRACT_ADDRESS as `0x${string}`,
@@ -62,7 +97,38 @@ export function usePrisonersDilemma() {
   })
 
   const submitStrategy = async (rules: { subject: number; operator: number; value: number; action: number }[], defaultAction: number) => {
-    const actions = rules.map(r => r.action)
+    let instance = fhevmInstance;
+
+    if (!instance && address && chainId === 11155111) {
+      try {
+        console.log("FHEVM: Lazy initializing instance...");
+        const { createInstance, SepoliaConfig, initSDK } = await import('@zama-fhe/relayer-sdk/web');
+        await initSDK();
+        instance = await createInstance({
+          ...SepoliaConfig,
+          network: (window as any).ethereum || SepoliaConfig.network
+        });
+        setFhevmInstance(instance);
+      } catch (e) {
+        console.error("Failed to lazy init FHEVM instance:", e);
+      }
+    }
+
+    if (!instance || !address) {
+      throw new Error("FHEVM instance not initialized or wallet not connected");
+    }
+
+    // Pack actions: defaultAction (8 bits) | rule0.action (8 bits) | rule1.action (8 bits) ...
+    let packedActions = BigInt(defaultAction);
+    for (let i = 0; i < rules.length; i++) {
+      packedActions |= BigInt(rules[i].action) << BigInt(8 * (i + 1));
+    }
+
+    const input = instance.createEncryptedInput(CONTRACT_ADDRESS, address);
+    input.add128(packedActions);
+
+    const { inputProof } = await input.encrypt();
+
     const subjects = rules.map(r => r.subject)
     const operators = rules.map(r => r.operator)
     const values = rules.map(r => BigInt(r.value))
@@ -71,9 +137,9 @@ export function usePrisonersDilemma() {
       address: CONTRACT_ADDRESS as `0x${string}`,
       abi: PrisonersDilemmaABI.abi,
       functionName: 'submitStrategy',
-      args: [actions, defaultAction, subjects, operators, values],
-      value: parseEther('0.01'), // Entry fee
-      gas: 3000000n, // Explicit gas limit for FHE operations
+      args: [toHex(inputProof), subjects, operators, values],
+      value: parseEther('0.01'),
+      gas: 5000000n,
     })
     return hash
   }
@@ -83,7 +149,7 @@ export function usePrisonersDilemma() {
       address: CONTRACT_ADDRESS as `0x${string}`,
       abi: PrisonersDilemmaABI.abi,
       functionName: 'voteStartTournament',
-      gas: 200000n, // Reduced gas for voting
+      gas: 200000n,
     })
     return hash
   }
@@ -104,55 +170,23 @@ export function usePrisonersDilemma() {
       address: CONTRACT_ADDRESS as `0x${string}`,
       abi: PrisonersDilemmaABI.abi,
       functionName: 'forceStartTournament',
-      gas: 150000n,
+      gas: 200000n,
     })
     return hash
   }
 
   return {
-    tournamentInfo,
     tournamentData,
     strategy: strategy as StrategyData | undefined,
     voteInfo: voteInfo as VoteInfo | undefined,
     hasVoted: hasVotedData as boolean | undefined,
     submitStrategy,
     voteStartTournament,
-    setTournamentRounds,
     forceStartTournament,
+    setTournamentRounds,
     refetchTournament,
     refetchStrategy,
     refetchVotes,
+    isFhevmInitialized: !!fhevmInstance
   }
-}
-
-export function useTournamentData(tournamentId: number) {
-  const { data: players } = useReadContract({
-    address: CONTRACT_ADDRESS as `0x${string}`,
-    abi: PrisonersDilemmaABI.abi,
-    functionName: 'getTournamentPlayers',
-    args: [tournamentId],
-  })
-
-  const { data: tournament } = useReadContract({
-    address: CONTRACT_ADDRESS as `0x${string}`,
-    abi: PrisonersDilemmaABI.abi,
-    functionName: 'getTournament',
-    args: [tournamentId],
-  })
-
-  return {
-    players: players as string[] | undefined,
-    tournament,
-  }
-}
-
-export function usePlayerScore(tournamentId: number, playerAddress?: string) {
-  const { data: score } = useReadContract({
-    address: CONTRACT_ADDRESS as `0x${string}`,
-    abi: PrisonersDilemmaABI.abi,
-    functionName: 'getPlayerScore',
-    args: playerAddress ? [tournamentId, playerAddress] : undefined,
-  })
-
-  return score as bigint | undefined
 }

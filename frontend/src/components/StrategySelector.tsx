@@ -27,7 +27,7 @@ export function StrategySelector() {
     }
   }
 
-  const hasSubmitted = strategy && (strategy as { [key: number]: boolean })[2]
+  const hasSubmitted = strategy?.isSubmitted
 
   return (
     <div className="bg-gray-900/50 border border-gray-700 rounded-xl p-6 backdrop-blur-sm">

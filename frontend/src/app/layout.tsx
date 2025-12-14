@@ -3,6 +3,11 @@ import { Inter } from 'next/font/google'
 import './globals.css'
 import { Providers } from '@/components/Providers'
 
+// Polyfill for global in browser environment
+if (typeof window !== 'undefined' && typeof (window as any).global === 'undefined') {
+  (window as any).global = window;
+}
+
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {

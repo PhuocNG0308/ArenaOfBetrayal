@@ -32,6 +32,10 @@ task("pd:submit-strategy")
     const [signer] = await ethers.getSigners();
     const contract = await ethers.getContractAt("PrisonersDilemma", contractAddress);
 
+    // Initialize Zama SDK
+    const { createInstance, SepoliaConfig } = await import("@zama-fhe/relayer-sdk");
+    const instance = await createInstance(SepoliaConfig);
+
     let rules: Array<{ subject: number; operator: number; value: number; action: number }> = [];
     let defaultAction = Choice.Cooperate;
 
@@ -74,7 +78,26 @@ task("pd:submit-strategy")
         throw new Error(`Unknown strategy: ${strategy}. Available: tit-for-tat, always-defect, always-cooperate, grudger`);
     }
 
-    const tx = await contract.connect(signer).submitStrategy(rules, defaultAction);
+    // Encrypt actions
+    const input = instance.createEncryptedInput(contractAddress, signer.address);
+    input.add8(defaultAction);
+    for (const rule of rules) {
+      input.add8(rule.action);
+    }
+    const { inputProof } = await input.encrypt();
+
+    // Prepare other arguments
+    const subjects = rules.map(r => r.subject);
+    const operators = rules.map(r => r.operator);
+    const values = rules.map(r => r.value);
+
+    const tx = await contract.connect(signer).submitStrategy(
+      inputProof,
+      subjects,
+      operators,
+      values,
+      { value: ethers.parseEther("0.01") }
+    );
     await tx.wait();
     console.log("Strategy submitted successfully!");
   });
@@ -87,7 +110,7 @@ task("pd:get-strategy")
 
     const contract = await ethers.getContractAt("PrisonersDilemma", contractAddress);
 
-    const [_rules, _defaultAction, isSubmitted] = await contract.getStrategy(player);
+    const [subjects, operators, values, isSubmitted] = await contract.getStrategy(player);
 
     if (!isSubmitted) {
       console.log("Player has not submitted a strategy yet");
@@ -95,33 +118,11 @@ task("pd:get-strategy")
     }
 
     console.log("Player has submitted a strategy");
-    // Note: Rule details parsing removed for brevity
-  });
-
-task("pd:add-starter")
-  .addParam("contract", "Address of the PrisonersDilemma contract")
-  .addParam("address", "Address to authorize")
-  .setAction(async function (taskArguments: TaskArguments, { ethers }) {
-    const { contract: contractAddress, address } = taskArguments;
-
-    const [signer] = await ethers.getSigners();
-    const contract = await ethers.getContractAt("PrisonersDilemma", contractAddress);
-
-    const tx = await contract.connect(signer).addAuthorizedStarter(address);
-    await tx.wait();
-  });
-
-task("pd:set-countdown")
-  .addParam("contract", "Address of the PrisonersDilemma contract")
-  .addParam("seconds", "Countdown duration in seconds")
-  .setAction(async function (taskArguments: TaskArguments, { ethers }) {
-    const { contract: contractAddress, seconds } = taskArguments;
-
-    const [signer] = await ethers.getSigners();
-    const contract = await ethers.getContractAt("PrisonersDilemma", contractAddress);
-
-    const tx = await contract.connect(signer).setTournamentCountdown(parseInt(seconds));
-    await tx.wait();
+    console.log(`Rules count: ${subjects.length}`);
+    
+    for(let i = 0; i < subjects.length; i++) {
+      console.log(`Rule ${i+1}: If ${ConditionSubject[Number(subjects[i])]} ${ConditionOperator[Number(operators[i])]} ${values[i]} THEN [Encrypted]`);
+    }
   });
 
 task("pd:set-rounds")
@@ -135,9 +136,10 @@ task("pd:set-rounds")
 
     const tx = await contract.connect(signer).setTournamentRounds(parseInt(rounds));
     await tx.wait();
+    console.log(`Tournament rounds set to ${rounds}`);
   });
 
-task("pd:start-tournament")
+task("pd:vote-start")
   .addParam("contract", "Address of the PrisonersDilemma contract")
   .setAction(async function (taskArguments: TaskArguments, { ethers }) {
     const { contract: contractAddress } = taskArguments;
@@ -145,8 +147,9 @@ task("pd:start-tournament")
     const [signer] = await ethers.getSigners();
     const contract = await ethers.getContractAt("PrisonersDilemma", contractAddress);
 
-    const tx = await contract.connect(signer).startTournament();
+    const tx = await contract.connect(signer).voteStartTournament();
     await tx.wait();
+    console.log("Voted to start tournament successfully");
   });
 
 task("pd:force-start")
@@ -159,6 +162,7 @@ task("pd:force-start")
 
     const tx = await contract.connect(signer).forceStartTournament();
     await tx.wait();
+    console.log("Tournament force started successfully");
   });
 
 task("pd:tournament-info")
@@ -207,31 +211,4 @@ task("pd:get-player-score")
 
     await contract.getPlayerScore(tournamentid, player);
     console.log(`Score for player ${player} in tournament ${tournamentid} retrieved successfully`);
-  });
-
-task("pd:get-game")
-  .addParam("contract", "Address of the PrisonersDilemma contract")
-  .addParam("tournamentid", "Tournament ID")
-  .addParam("gameid", "Game ID")
-  .setAction(async function (taskArguments: TaskArguments, { ethers }) {
-    const { contract: contractAddress, tournamentid, gameid } = taskArguments;
-
-    const contract = await ethers.getContractAt("PrisonersDilemma", contractAddress);
-
-    await contract.getTournamentGame(tournamentid, gameid);
-    console.log(`Game ${gameid} from tournament ${tournamentid} retrieved successfully`);
-  });
-
-task("pd:get-rounds")
-  .addParam("contract", "Address of the PrisonersDilemma contract")
-  .addParam("tournamentid", "Tournament ID")
-  .addParam("gameid", "Game ID")
-  .addOptionalParam("limit", "Number of rounds to display", "10")
-  .setAction(async function (taskArguments: TaskArguments, { ethers }) {
-    const { contract: contractAddress, tournamentid, gameid } = taskArguments;
-
-    const contract = await ethers.getContractAt("PrisonersDilemma", contractAddress);
-
-    await contract.getTournamentGameRounds(tournamentid, gameid);
-    console.log(`Rounds for game ${gameid} in tournament ${tournamentid} retrieved successfully`);
   });

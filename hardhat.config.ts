@@ -45,7 +45,7 @@ const config: HardhatUserConfig = {
         count: 10,
       },
       chainId: 31337,
-      url: "http://localhost:8545",
+      url: "http://127.0.0.1:8545",
     },
     sepolia: {
       accounts: {
@@ -55,6 +55,15 @@ const config: HardhatUserConfig = {
       },
       chainId: 11155111,
       url: `https://sepolia.infura.io/v3/${INFURA_API_KEY}`,
+    },
+    zama: {
+      accounts: {
+        mnemonic: MNEMONIC,
+        path: "m/44'/60'/0'/0/",
+        count: 10,
+      },
+      chainId: 8009,
+      url: "https://devnet.zama.ai",
     },
   },
   paths: {
