@@ -31,6 +31,29 @@ const ACTIONS = {
 
 const MAX_RULES = 10 // Contract limit for gas optimization
 
+// Move subjects (MyLastMove=1, OpponentLastMove=2) only support Is/IsNot operators
+const MOVE_SUBJECTS = [1, 2] // MyLastMove, OpponentLastMove
+// Numeric subjects (RoundNumber=0, MyTotalDefects=3, etc.) only support Equals/GreaterThan/LessThan
+const NUMERIC_SUBJECTS = [0, 3, 4, 5] // RoundNumber, MyTotalDefects, OpponentTotalDefects, OpponentTotalCooperates
+
+// Valid operators for move subjects: Is (0), IsNot (1)
+const MOVE_OPERATORS = [0, 1]
+// Valid operators for numeric subjects: GreaterThan (2), LessThan (3), Equals (4)
+const NUMERIC_OPERATORS = [2, 3, 4]
+
+// Helper to check if a subject is a move subject
+const isMoveSubject = (subject: number): boolean => MOVE_SUBJECTS.includes(subject)
+
+// Helper to get valid operators for a subject
+const getValidOperators = (subject: number): number[] => {
+  return isMoveSubject(subject) ? MOVE_OPERATORS : NUMERIC_OPERATORS
+}
+
+// Helper to get default operator for a subject
+const getDefaultOperator = (subject: number): number => {
+  return isMoveSubject(subject) ? 0 : 4 // Is for moves, Equals for numeric
+}
+
 interface Rule {
   subject: number
   operator: number
@@ -39,11 +62,12 @@ interface Rule {
 }
 
 export function CustomStrategyBuilder() {
+  // Default rule with valid operator for subject 0 (RoundNumber -> numeric -> Equals=4)
   const [rules, setRules] = useState<Rule[]>([])
   const [defaultAction, setDefaultAction] = useState(0) // Cooperate by default
   const [loading, setLoading] = useState(false)
   const [txHash, setTxHash] = useState<`0x${string}` | undefined>()
-  const { submitStrategy, strategy, refetchTournament, refetchStrategy } = usePrisonersDilemma()
+  const { submitStrategy, strategy, refetchTournament, refetchStrategy, isFhevmInitialized, isFhevmInitializing, fhevmError } = usePrisonersDilemma()
   const { t } = useLanguage()
 
   const { isLoading: isConfirming, isSuccess: isConfirmed } = useWaitForTransactionReceipt({
@@ -66,7 +90,8 @@ export function CustomStrategyBuilder() {
       alert(t('strategy.maxRules').replace('{{count}}', String(MAX_RULES)))
       return
     }
-    setRules([...rules, { subject: 0, operator: 0, value: 0, action: 0 }])
+    // Default subject is 0 (RoundNumber = numeric), so default operator should be 4 (Equals)
+    setRules([...rules, { subject: 0, operator: 4, value: 0, action: 0 }])
   }
 
   const removeRule = (index: number) => {
@@ -75,7 +100,24 @@ export function CustomStrategyBuilder() {
 
   const updateRule = (index: number, field: keyof Rule, value: number) => {
     const newRules = [...rules]
-    newRules[index] = { ...newRules[index], [field]: value }
+    const currentRule = newRules[index]
+    
+    if (field === 'subject') {
+      // When subject changes, check if current operator is valid for new subject
+      const validOperators = getValidOperators(value)
+      const newOperator = validOperators.includes(currentRule.operator) 
+        ? currentRule.operator 
+        : getDefaultOperator(value)
+      
+      // Also reset value to appropriate default for move subjects (0 or 1 for Cooperate/Defect)
+      const newValue = isMoveSubject(value) 
+        ? (currentRule.value > 1 ? 0 : currentRule.value) 
+        : currentRule.value
+      
+      newRules[index] = { ...currentRule, subject: value, operator: newOperator, value: newValue }
+    } else {
+      newRules[index] = { ...currentRule, [field]: value }
+    }
     setRules(newRules)
   }
 
@@ -156,7 +198,11 @@ export function CustomStrategyBuilder() {
                     <span className="text-blue-400">{t('strategyBuilder.labels.if')}</span>{' '}
                     <span className="font-semibold text-white">{t(`strategyBuilder.subjects.${SUBJECTS[rule.subject as keyof typeof SUBJECTS]}`)}</span>{' '}
                     <span className="text-blue-400">{t(`strategyBuilder.operators.${OPERATORS[rule.operator as keyof typeof OPERATORS]}`)}</span>{' '}
-                    <span className="font-semibold text-white">{rule.value}</span>{' '}
+                    <span className="font-semibold text-white">
+                      {isMoveSubject(rule.subject) 
+                        ? t(`strategyBuilder.actions.${rule.value === 0 ? 'Cooperate' : 'Defect'}`)
+                        : rule.value}
+                    </span>{' '}
                     <span className="text-blue-400">{t('strategyBuilder.labels.then')}</span>{' '}
                     <span className="font-semibold text-purple-400">
                       {t('strategy.encrypted')}
@@ -197,6 +243,43 @@ export function CustomStrategyBuilder() {
           <span>{t('strategy.encrypted')}</span>
         </div>
       </div>
+
+      {/* FHEVM Status Indicator */}
+      {isFhevmInitializing && (
+        <div className="bg-blue-900/30 border border-blue-700 p-4 rounded-lg mb-6">
+          <div className="flex items-center gap-3">
+            <Loader2 className="text-blue-400 animate-spin" size={20} />
+            <div>
+              <h3 className="font-semibold text-blue-200">Initializing FHEVM Encryption...</h3>
+              <p className="text-sm text-blue-300">Loading WASM and connecting to Zama Relayer</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {fhevmError && (
+        <div className="bg-red-900/30 border border-red-700 p-4 rounded-lg mb-6">
+          <div className="flex items-start gap-3">
+            <Info className="text-red-400 mt-0.5 flex-shrink-0" size={20} />
+            <div>
+              <h3 className="font-semibold text-red-200">FHEVM Initialization Error</h3>
+              <p className="text-sm text-red-300">{fhevmError}</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {!isFhevmInitialized && !isFhevmInitializing && !fhevmError && (
+        <div className="bg-yellow-900/30 border border-yellow-700 p-4 rounded-lg mb-6">
+          <div className="flex items-start gap-3">
+            <Info className="text-yellow-400 mt-0.5 flex-shrink-0" size={20} />
+            <div>
+              <h3 className="font-semibold text-yellow-200">FHEVM Not Ready</h3>
+              <p className="text-sm text-yellow-300">Please ensure you are connected to Sepolia network.</p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Entry Fee Warning */}
       <div className="bg-orange-900/30 border border-orange-700 p-4 rounded-lg mb-6">
@@ -259,24 +342,38 @@ export function CustomStrategyBuilder() {
                   disabled={loading || isConfirming}
                   className="w-full bg-gray-700 border border-gray-600 text-white rounded px-3 py-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {Object.entries(OPERATORS).map(([key, label]) => (
-                    <option key={key} value={key}>{t(`strategyBuilder.operators.${label}`)}</option>
-                  ))}
+                  {Object.entries(OPERATORS)
+                    .filter(([key]) => getValidOperators(rule.subject).includes(parseInt(key)))
+                    .map(([key, label]) => (
+                      <option key={key} value={key}>{t(`strategyBuilder.operators.${label}`)}</option>
+                    ))}
                 </select>
               </div>
 
-              {/* Value */}
+              {/* Value - shows dropdown for move subjects (Cooperate/Defect), number input for numeric */}
               <div>
                 <label className="block text-xs text-gray-400 mb-1">{t('strategyBuilder.labels.value')}</label>
-                <input
-                  type="number"
-                  value={rule.value}
-                  onChange={(e) => updateRule(index, 'value', parseInt(e.target.value) || 0)}
-                  disabled={loading || isConfirming}
-                  className="w-full bg-gray-700 border border-gray-600 text-white rounded px-3 py-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
-                  min="0"
-                  max="1000"
-                />
+                {isMoveSubject(rule.subject) ? (
+                  <select
+                    value={rule.value}
+                    onChange={(e) => updateRule(index, 'value', parseInt(e.target.value))}
+                    disabled={loading || isConfirming}
+                    className="w-full bg-gray-700 border border-gray-600 text-white rounded px-3 py-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <option value={0}>{t('strategyBuilder.actions.Cooperate')}</option>
+                    <option value={1}>{t('strategyBuilder.actions.Defect')}</option>
+                  </select>
+                ) : (
+                  <input
+                    type="number"
+                    value={rule.value}
+                    onChange={(e) => updateRule(index, 'value', parseInt(e.target.value) || 0)}
+                    disabled={loading || isConfirming}
+                    className="w-full bg-gray-700 border border-gray-600 text-white rounded px-3 py-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                    min="0"
+                    max="1000"
+                  />
+                )}
               </div>
 
               {/* Action */}
