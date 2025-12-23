@@ -119,6 +119,14 @@ npx hardhat pd:run-oracle --contract 0x63bf4C43a6Eb92C4c4e636f0B721426F92dA8d2e 
 └── hardhat.config.ts    # Hardhat configuration
 ```
 
+## 🌐 Deployment
+
+### Frontend (Vercel)
+The frontend is ready for Vercel deployment. See [frontend/VERCEL_DEPLOY.md](frontend/VERCEL_DEPLOY.md) for detailed instructions.
+
+### Oracle (VPS/Local)
+The Oracle must run continuously to process games. It cannot be deployed to Vercel. Run it on a VPS or keep a local terminal open.
+
 ---
 
 ## 🎮 How to Play
