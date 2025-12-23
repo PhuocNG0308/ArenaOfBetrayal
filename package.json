@@ -62,6 +62,9 @@
     "typechain": "^8.3.2",
     "typescript": "^5.8.3"
   },
+  "devDependencies": {
+    "strip-comments": "^3.0.0"
+  },
   "files": [
     "contracts"
   ],
@@ -80,6 +83,7 @@
     "build:ts": "tsc --project tsconfig.json",
     "typechain": "cross-env TS_NODE_TRANSPILE_ONLY=true hardhat typechain",
     "chain": "hardhat node --network hardhat --no-deploy",
+    "strip-comments": "node ./scripts/strip-comments.mjs",
     "deploy:localhost": "hardhat deploy --network localhost",
     "deploy:sepolia": "hardhat deploy --network sepolia",
     "verify:sepolia": "hardhat verify --network sepolia"

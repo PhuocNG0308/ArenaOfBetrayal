@@ -33,7 +33,6 @@ export interface VoteInfo {
 let globalFhevmInstance: FhevmInstance | null = null;
 let globalFhevmInitPromise: Promise<FhevmInstance> | null = null;
 
-// Helper function to initialize FHEVM with timeout
 async function initializeFhevm(): Promise<FhevmInstance> {
   if (globalFhevmInstance) {
     return globalFhevmInstance;
@@ -46,18 +45,14 @@ async function initializeFhevm(): Promise<FhevmInstance> {
   globalFhevmInitPromise = (async () => {
     console.log("FHEVM Init: Starting initialization...");
     
-    // Use /web import instead of /bundle to avoid window.relayerSDK dependency
     const { createInstance, SepoliaConfig, initSDK } = await import('@zama-fhe/relayer-sdk/web');
     
     console.log("FHEVM Init: Loaded SDK module, initializing WASM...");
     await initSDK();
     console.log("FHEVM Init: SDK initialized (WASM loaded)");
 
-    // Create instance with SepoliaConfig
-    // Use the default RPC from SepoliaConfig for reliability
     const instance = await createInstance({
       ...SepoliaConfig,
-      // Only use window.ethereum if available, otherwise fallback to SepoliaConfig.network
       network: typeof window !== 'undefined' && (window as any).ethereum 
         ? (window as any).ethereum 
         : SepoliaConfig.network
@@ -71,7 +66,6 @@ async function initializeFhevm(): Promise<FhevmInstance> {
   try {
     return await globalFhevmInitPromise;
   } catch (error) {
-    // Reset promise on error so retry is possible
     globalFhevmInitPromise = null;
     throw error;
   }
@@ -87,26 +81,22 @@ export function usePrisonersDilemma() {
   const initAttemptedRef = useRef(false)
 
   useEffect(() => {
-    // Only initialize on Sepolia chain
     if (chainId !== 11155111) {
       console.log("FHEVM Init: Skipping - not on Sepolia (chain ID:", chainId, ")");
       setFhevmError("Please switch to Sepolia network to use FHEVM features");
       return;
     }
 
-    // Need address to be connected
     if (!address) {
       console.log("FHEVM Init: Wallet not connected");
       return;
     }
 
-    // Already initialized globally
     if (globalFhevmInstance) {
       setFhevmInstance(globalFhevmInstance);
       return;
     }
 
-    // Prevent duplicate initialization attempts
     if (initAttemptedRef.current) {
       return;
     }
@@ -123,7 +113,7 @@ export function usePrisonersDilemma() {
       .catch((e) => {
         console.error("Failed to init FHEVM instance:", e);
         setFhevmError(e instanceof Error ? e.message : "Failed to initialize FHEVM");
-        initAttemptedRef.current = false; // Allow retry
+        initAttemptedRef.current = false;
       })
       .finally(() => {
         setFhevmInitializing(false);
@@ -160,19 +150,16 @@ export function usePrisonersDilemma() {
   })
 
   const submitStrategy = async (rules: { subject: number; operator: number; value: number; action: number }[], defaultAction: number) => {
-    // Check wallet connection first
     if (!address) {
       throw new Error("Wallet not connected. Please connect your wallet first.");
     }
 
-    // Check chain ID
     if (chainId !== 11155111) {
       throw new Error("Please switch to Sepolia network to submit a strategy.");
     }
 
     let instance = fhevmInstance;
 
-    // Lazy initialize if not yet done - use the singleton helper
     if (!instance) {
       try {
         console.log("FHEVM: Lazy initializing instance...");
@@ -189,7 +176,6 @@ export function usePrisonersDilemma() {
       throw new Error("FHEVM instance not initialized. Please refresh the page and ensure you are on Sepolia network.");
     }
 
-    // Pack actions: defaultAction (8 bits) | rule0.action (8 bits) | rule1.action (8 bits) ...
     let packedActions = BigInt(defaultAction);
     for (let i = 0; i < rules.length; i++) {
       packedActions |= BigInt(rules[i].action) << BigInt(8 * (i + 1));
@@ -198,13 +184,11 @@ export function usePrisonersDilemma() {
     const input = instance.createEncryptedInput(CONTRACT_ADDRESS, address);
     input.add128(packedActions);
 
-    // encrypt() returns { handles, inputProof }
     const encryptedResult = await input.encrypt();
     console.log("Encrypted result:", encryptedResult);
     console.log("Handle type:", typeof encryptedResult.handles[0], encryptedResult.handles[0]);
     console.log("InputProof type:", typeof encryptedResult.inputProof, encryptedResult.inputProof);
 
-    // Helper to convert Uint8Array or other types to hex string for viem
     const toHex = (value: unknown): `0x${string}` => {
       if (typeof value === 'string') {
         return value.startsWith('0x') ? value as `0x${string}` : `0x${value}` as `0x${string}`;
@@ -228,7 +212,6 @@ export function usePrisonersDilemma() {
     const operators = rules.map(r => r.operator)
     const values = rules.map(r => BigInt(r.value))
 
-    // Pass the handle (bytes32) and inputProof separately as hex strings for viem
     const hash = await writeContractAsync({
       address: CONTRACT_ADDRESS as `0x${string}`,
       abi: PrisonersDilemmaABI.abi,

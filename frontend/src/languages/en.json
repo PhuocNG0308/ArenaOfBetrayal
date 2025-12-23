@@ -142,10 +142,21 @@
     "title": "Leaderboard",
     "results": "Tournament Results",
     "waiting": "Tournament results will appear here after completion",
+    "noFinishedTournament": "No completed tournaments yet. Results will appear here after the first tournament finishes.",
     "champion": "Champion",
     "runnerUp": "Runner-up",
     "thirdPlace": "Third Place",
-    "points": "points"
+    "points": "points",
+    "you": "You",
+    "winners": "Winners",
+    "tournamentId": "Tournament",
+    "prizePool": "Prize Pool",
+    "claimPrize": "Claim Prize",
+    "claimed": "Prize Claimed!",
+    "strategy": "Strategy",
+    "noStrategy": "No strategy",
+    "simpleStrategy": "Simple (no conditions)",
+    "rulesCount": "{{count}} conditional rules"
   },
   "strategyBuilder": {
     "subjects": {

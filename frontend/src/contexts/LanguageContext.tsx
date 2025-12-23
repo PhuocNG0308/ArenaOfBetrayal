@@ -28,7 +28,6 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
   const [language, setLanguageState] = useState<Language>('en')
 
   useEffect(() => {
-    // Load saved language from localStorage
     const saved = localStorage.getItem('language') as Language
     if (saved && (saved === 'en' || saved === 'vi')) {
       setLanguageState(saved)
@@ -48,7 +47,7 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
       if (value && typeof value === 'object' && k in value) {
         value = value[k]
       } else {
-        return key // Return key if translation not found
+        return key
       }
     }
     

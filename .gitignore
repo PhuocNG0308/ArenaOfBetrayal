@@ -1,3 +1,29 @@
+# Repo-level gitignore
+
+# Build / artifacts
+artifacts/
+build-info/
+build/
+cache/
+node_modules/
+fhevmTemp/
+
+# Deployments
+deployments/
+
+# Docs context and history (auto-generated)
+docs_context/
+.history/
+
+# Env
+*.env
+
+# OS / IDE
+.DS_Store
+.vscode/
+.idea/
+Thumbs.db
+
 # fhevm
 fhevmTemp
 

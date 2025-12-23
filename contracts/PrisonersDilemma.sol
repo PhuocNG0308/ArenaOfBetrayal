@@ -1,21 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-// Import FHEVM library
 import "@fhevm/solidity/lib/FHE.sol";
 import "@fhevm/solidity/config/ZamaConfig.sol";
-
-// Import encrypted types
 import "encrypted-types/EncryptedTypes.sol";
 
-/**
- * @title PrisonersDilemma
- * @notice A Prisoner's Dilemma tournament game with FHE-encrypted strategies
- * @dev Uses Zama's FHEVM for fully homomorphic encryption of player strategies
- */
 contract PrisonersDilemma is ZamaEthereumConfig {
-    // ============ Enums ============
-    
     enum Choice {
         Cooperate,
         Defect
@@ -45,8 +35,6 @@ contract PrisonersDilemma is ZamaEthereumConfig {
         Finished
     }
 
-    // ============ Structs ============
-
     struct Rule {
         ConditionSubject subject;
         ConditionOperator operator;
@@ -55,7 +43,7 @@ contract PrisonersDilemma is ZamaEthereumConfig {
 
     struct EncryptedStrategy {
         Rule[] rules;
-        euint128 encryptedActions; // FHE encrypted actions
+        euint128 encryptedActions;
         bool isSubmitted;
     }
 
@@ -82,8 +70,6 @@ contract PrisonersDilemma is ZamaEthereumConfig {
         bool isPublished;
     }
 
-    // ============ Constants ============
-
     uint256 public constant DEFAULT_ROUNDS = 50;
     uint256 public constant MIN_ROUNDS = 10;
     uint256 public constant MAX_ROUNDS = 200;
@@ -91,8 +77,6 @@ contract PrisonersDilemma is ZamaEthereumConfig {
     uint256 public constant WINNER_PERCENTAGE = 30;
     uint256 public constant VOTE_QUORUM = 50;
     uint256 public constant MAX_RULES = 10;
-
-    // ============ State Variables ============
 
     address public owner;
     address public computationOracle;
@@ -102,11 +86,12 @@ contract PrisonersDilemma is ZamaEthereumConfig {
     mapping(uint256 => address[]) public tournamentPlayers;
     mapping(uint256 => VoteInfo) private tournamentVotes;
     mapping(uint256 => PublishedResults) private tournamentResults;
+    
+    mapping(uint256 => mapping(address => uint256)) public claimablePrizes;
+    mapping(uint256 => mapping(address => bool)) public hasClaimed;
 
     uint256 public currentTournamentId;
     TournamentInfo public currentTournament;
-
-    // ============ Events ============
 
     event StrategySubmitted(address indexed player, uint256 tournamentId);
     event TournamentCreated(uint256 indexed tournamentId);
@@ -114,10 +99,9 @@ contract PrisonersDilemma is ZamaEthereumConfig {
     event TournamentStarted(uint256 indexed tournamentId, uint256 playerCount);
     event ResultsPublished(uint256 indexed tournamentId, address[] winners, uint256[] prizes);
     event TournamentFinished(uint256 indexed tournamentId);
+    event PrizeClaimed(uint256 indexed tournamentId, address indexed winner, uint256 amount);
     event ComputationOracleSet(address indexed oracle);
     event TournamentRoundsSet(uint256 indexed tournamentId, uint256 rounds);
-
-    // ============ Modifiers ============
 
     modifier onlyOwner() {
         require(msg.sender == owner, "Only owner");
@@ -134,8 +118,6 @@ contract PrisonersDilemma is ZamaEthereumConfig {
         _;
     }
 
-    // ============ Constructor ============
-
     constructor() {
         owner = msg.sender;
         computationOracle = msg.sender;
@@ -150,8 +132,6 @@ contract PrisonersDilemma is ZamaEthereumConfig {
             prizePool: 0
         });
     }
-
-    // ============ Admin Functions ============
 
     function setComputationOracle(address oracle) external onlyOwner {
         require(oracle != address(0), "Invalid oracle");
@@ -169,16 +149,6 @@ contract PrisonersDilemma is ZamaEthereumConfig {
         _startTournament();
     }
 
-    // ============ Player Functions ============
-
-    /**
-     * @notice Submit an encrypted strategy to the tournament
-     * @param encryptedActionsHandle The FHE-encrypted actions (external handle from relayer)
-     * @param inputProof The ZKPoK proof for the encrypted input
-     * @param subjects Array of condition subjects for each rule
-     * @param operators Array of condition operators for each rule
-     * @param values Array of condition values for each rule
-     */
     function submitStrategy(
         externalEuint128 encryptedActionsHandle,
         bytes calldata inputProof,
@@ -191,40 +161,28 @@ contract PrisonersDilemma is ZamaEthereumConfig {
         require(subjects.length <= MAX_RULES, "Too many rules");
         require(!encryptedStrategies[currentTournamentId][msg.sender].isSubmitted, "Strategy already submitted");
 
-        // Delete any existing rules
         delete encryptedStrategies[currentTournamentId][msg.sender].rules;
 
         EncryptedStrategy storage strategy = encryptedStrategies[currentTournamentId][msg.sender];
         strategy.isSubmitted = true;
 
-        // Convert external handle to euint128 using FHE.fromExternal
-        // This validates the ZKPoK proof and registers the ciphertext
         euint128 encryptedActions = FHE.fromExternal(encryptedActionsHandle, inputProof);
         
-        // Allow this contract to use the encrypted value in future transactions
         FHE.allowThis(encryptedActions);
-        
-        // Allow the player to access their own encrypted strategy for user decryption
         FHE.allow(encryptedActions, msg.sender);
-        
-        // Allow the oracle to access for computation
         FHE.allow(encryptedActions, computationOracle);
         
-        // Store the encrypted value
         strategy.encryptedActions = encryptedActions;
 
-        // Store and validate rules
         for (uint256 i = 0; i < subjects.length; i++) {
             _validateRuleStructure(subjects[i], operators[i]);
             strategy.rules.push(Rule({subject: subjects[i], operator: operators[i], value: values[i]}));
         }
 
-        // Update tournament state
         tournamentPlayers[currentTournamentId].push(msg.sender);
         currentTournament.playerCount++;
         currentTournament.prizePool += msg.value;
 
-        // Update vote requirements
         VoteInfo storage votes = tournamentVotes[currentTournamentId];
         votes.requiredVotes = (currentTournament.playerCount * VOTE_QUORUM) / 100;
         if (votes.requiredVotes < 2) votes.requiredVotes = 2;
@@ -232,10 +190,6 @@ contract PrisonersDilemma is ZamaEthereumConfig {
         emit StrategySubmitted(msg.sender, currentTournamentId);
     }
 
-    /**
-     * @notice Vote to start the tournament
-     * @dev Requires the player to have submitted a strategy
-     */
     function voteStartTournament() external {
         require(currentTournament.status == TournamentStatus.Registration, "Not in registration");
         require(encryptedStrategies[currentTournamentId][msg.sender].isSubmitted, "Must submit strategy to vote");
@@ -253,16 +207,21 @@ contract PrisonersDilemma is ZamaEthereumConfig {
         }
     }
 
-    // ============ Oracle Functions ============
+    function claimPrize(uint256 tournamentId) external {
+        require(tournamentResults[tournamentId].isPublished, "Results not published");
+        require(!hasClaimed[tournamentId][msg.sender], "Already claimed");
+        
+        uint256 amount = claimablePrizes[tournamentId][msg.sender];
+        require(amount > 0, "No prize to claim");
+        
+        hasClaimed[tournamentId][msg.sender] = true;
+        
+        (bool success, ) = payable(msg.sender).call{value: amount}("");
+        require(success, "Transfer failed");
+        
+        emit PrizeClaimed(tournamentId, msg.sender, amount);
+    }
 
-    /**
-     * @notice Publish tournament results (called by oracle after off-chain computation)
-     * @param tournamentId The tournament ID
-     * @param players Array of player addresses
-     * @param scores Array of scores for each player
-     * @param winners Array of winner addresses
-     * @param prizes Array of prizes for each winner
-     */
     function publishResults(
         uint256 tournamentId,
         address[] calldata players,
@@ -293,8 +252,6 @@ contract PrisonersDilemma is ZamaEthereumConfig {
         _distributePrizes(tournamentId);
     }
 
-    // ============ View Functions ============
-
     function getTournamentInfo() external view returns (TournamentInfo memory) {
         return currentTournament;
     }
@@ -321,6 +278,32 @@ contract PrisonersDilemma is ZamaEthereumConfig {
         return (results.winners, results.prizes);
     }
 
+    function getClaimablePrize(uint256 tournamentId, address player) external view returns (uint256 amount, bool claimed) {
+        return (claimablePrizes[tournamentId][player], hasClaimed[tournamentId][player]);
+    }
+
+    function getLastFinishedTournamentId() external view returns (uint256) {
+        if (currentTournamentId == 0) return 0;
+        
+        if (currentTournament.status == TournamentStatus.Registration && currentTournamentId > 0) {
+            TournamentInfo storage prev = tournaments[currentTournamentId - 1];
+            if (prev.status == TournamentStatus.Finished) {
+                return currentTournamentId - 1;
+            }
+        }
+        
+        if (currentTournament.status == TournamentStatus.Finished || 
+            currentTournament.status == TournamentStatus.ResultsPublished) {
+            return currentTournamentId;
+        }
+        
+        return 0;
+    }
+
+    function isResultsPublished(uint256 tournamentId) external view returns (bool) {
+        return tournamentResults[tournamentId].isPublished;
+    }
+
     function getVoteInfo(uint256 tournamentId) external view returns (uint256 voteCount, uint256 requiredVotes) {
         VoteInfo storage votes = tournamentVotes[tournamentId];
         return (votes.voteCount, votes.requiredVotes);
@@ -330,14 +313,6 @@ contract PrisonersDilemma is ZamaEthereumConfig {
         return tournamentVotes[tournamentId].hasVoted[player];
     }
 
-    /**
-     * @notice Get the strategy rules for a player (non-encrypted parts)
-     * @param player The player address
-     * @return subjects Array of condition subjects
-     * @return operators Array of condition operators
-     * @return values Array of condition values
-     * @return isSubmitted Whether the strategy has been submitted
-     */
     function getStrategy(
         address player
     )
@@ -367,12 +342,6 @@ contract PrisonersDilemma is ZamaEthereumConfig {
         isSubmitted = strategy.isSubmitted;
     }
 
-    /**
-     * @notice Get the encrypted strategy handle for a player (for user decryption)
-     * @dev Only the player themselves can access this (ACL enforced)
-     * @param player The player address
-     * @return encryptedActionsHandle The encrypted actions handle as bytes32
-     */
     function getEncryptedActionsHandle(address player) external view returns (bytes32) {
         require(
             msg.sender == player || msg.sender == computationOracle || msg.sender == owner,
@@ -383,14 +352,6 @@ contract PrisonersDilemma is ZamaEthereumConfig {
         return FHE.toBytes32(strategy.encryptedActions);
     }
 
-    /**
-     * @notice Get the full encrypted strategy for computation (oracle only)
-     * @param player The player address
-     * @return encryptedActionsHandle The encrypted actions handle
-     * @return subjects Array of condition subjects
-     * @return operators Array of condition operators
-     * @return values Array of condition values
-     */
     function getEncryptedStrategyForComputation(
         address player
     )
@@ -421,8 +382,6 @@ contract PrisonersDilemma is ZamaEthereumConfig {
         encryptedActionsHandle = FHE.toBytes32(strategy.encryptedActions);
     }
 
-    // ============ Internal Functions ============
-
     function _startTournament() private {
         require(currentTournament.status == TournamentStatus.Registration, "Invalid status");
         require(currentTournament.playerCount >= 2, "Need at least 2 players");
@@ -440,7 +399,7 @@ contract PrisonersDilemma is ZamaEthereumConfig {
         PublishedResults storage results = tournamentResults[tournamentId];
 
         for (uint256 i = 0; i < results.winners.length; i++) {
-            payable(results.winners[i]).transfer(results.prizes[i]);
+            claimablePrizes[tournamentId][results.winners[i]] = results.prizes[i];
         }
 
         currentTournament.status = TournamentStatus.Finished;
@@ -484,8 +443,6 @@ contract PrisonersDilemma is ZamaEthereumConfig {
             );
         }
     }
-
-    // ============ Fallback ============
 
     receive() external payable {}
 }

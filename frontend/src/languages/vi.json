@@ -142,10 +142,21 @@
     "title": "Bảng Xếp Hạng",
     "results": "Kết Quả Giải Đấu",
     "waiting": "Kết quả giải đấu sẽ xuất hiện ở đây sau khi kết thúc",
+    "noFinishedTournament": "Chưa có giải đấu nào hoàn thành. Kết quả sẽ xuất hiện ở đây sau khi giải đấu đầu tiên kết thúc.",
     "champion": "Nhà Vô Địch",
     "runnerUp": "Á Quân",
     "thirdPlace": "Hạng Ba",
-    "points": "điểm"
+    "points": "điểm",
+    "you": "Bạn",
+    "winners": "Người Thắng Cuộc",
+    "tournamentId": "Giải Đấu",
+    "prizePool": "Tổng Giải Thưởng",
+    "claimPrize": "Nhận Thưởng",
+    "claimed": "Đã Nhận Thưởng!",
+    "strategy": "Chiến Thuật",
+    "noStrategy": "Không có chiến thuật",
+    "simpleStrategy": "Đơn giản (không điều kiện)",
+    "rulesCount": "{{count}} điều kiện"
   },
   "strategyBuilder": {
     "subjects": {

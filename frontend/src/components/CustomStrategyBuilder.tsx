@@ -6,7 +6,6 @@ import { Plus, Trash2, Loader2, CheckCircle, Info, Coins } from 'lucide-react'
 import { useWaitForTransactionReceipt } from 'wagmi'
 import { useLanguage } from '@/contexts/LanguageContext'
 
-// Enum types from contract
 const SUBJECTS = {
   0: 'RoundNumber',
   1: 'MyLastMove',
@@ -29,29 +28,22 @@ const ACTIONS = {
   1: 'Defect',
 }
 
-const MAX_RULES = 10 // Contract limit for gas optimization
+const MAX_RULES = 10
 
-// Move subjects (MyLastMove=1, OpponentLastMove=2) only support Is/IsNot operators
-const MOVE_SUBJECTS = [1, 2] // MyLastMove, OpponentLastMove
-// Numeric subjects (RoundNumber=0, MyTotalDefects=3, etc.) only support Equals/GreaterThan/LessThan
-const NUMERIC_SUBJECTS = [0, 3, 4, 5] // RoundNumber, MyTotalDefects, OpponentTotalDefects, OpponentTotalCooperates
+const MOVE_SUBJECTS = [1, 2]
+const NUMERIC_SUBJECTS = [0, 3, 4, 5]
 
-// Valid operators for move subjects: Is (0), IsNot (1)
 const MOVE_OPERATORS = [0, 1]
-// Valid operators for numeric subjects: GreaterThan (2), LessThan (3), Equals (4)
 const NUMERIC_OPERATORS = [2, 3, 4]
 
-// Helper to check if a subject is a move subject
 const isMoveSubject = (subject: number): boolean => MOVE_SUBJECTS.includes(subject)
 
-// Helper to get valid operators for a subject
 const getValidOperators = (subject: number): number[] => {
   return isMoveSubject(subject) ? MOVE_OPERATORS : NUMERIC_OPERATORS
 }
 
-// Helper to get default operator for a subject
 const getDefaultOperator = (subject: number): number => {
-  return isMoveSubject(subject) ? 0 : 4 // Is for moves, Equals for numeric
+  return isMoveSubject(subject) ? 0 : 4
 }
 
 interface Rule {
@@ -62,9 +54,8 @@ interface Rule {
 }
 
 export function CustomStrategyBuilder() {
-  // Default rule with valid operator for subject 0 (RoundNumber -> numeric -> Equals=4)
   const [rules, setRules] = useState<Rule[]>([])
-  const [defaultAction, setDefaultAction] = useState(0) // Cooperate by default
+  const [defaultAction, setDefaultAction] = useState(0)
   const [loading, setLoading] = useState(false)
   const [txHash, setTxHash] = useState<`0x${string}` | undefined>()
   const { submitStrategy, strategy, refetchTournament, refetchStrategy, isFhevmInitialized, isFhevmInitializing, fhevmError } = usePrisonersDilemma()
@@ -90,7 +81,6 @@ export function CustomStrategyBuilder() {
       alert(t('strategy.maxRules').replace('{{count}}', String(MAX_RULES)))
       return
     }
-    // Default subject is 0 (RoundNumber = numeric), so default operator should be 4 (Equals)
     setRules([...rules, { subject: 0, operator: 4, value: 0, action: 0 }])
   }
 
@@ -103,13 +93,11 @@ export function CustomStrategyBuilder() {
     const currentRule = newRules[index]
     
     if (field === 'subject') {
-      // When subject changes, check if current operator is valid for new subject
       const validOperators = getValidOperators(value)
       const newOperator = validOperators.includes(currentRule.operator) 
         ? currentRule.operator 
         : getDefaultOperator(value)
       
-      // Also reset value to appropriate default for move subjects (0 or 1 for Cooperate/Defect)
       const newValue = isMoveSubject(value) 
         ? (currentRule.value > 1 ? 0 : currentRule.value) 
         : currentRule.value
@@ -130,8 +118,6 @@ export function CustomStrategyBuilder() {
     try {
       const hash = await submitStrategy(rules, defaultAction)
       setTxHash(hash)
-      // Note: Consider using a toast notification library instead of alert for better UX
-      // alert(t('strategy.waitingConfirmation')) 
     } catch (error: unknown) {
       console.error(error)
       const errorMsg = error instanceof Error ? error.message : 'Unknown error'
