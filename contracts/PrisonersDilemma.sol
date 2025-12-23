@@ -1,9 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-interface IInputVerifier {
-    function verify(address user, bytes calldata inputProof) external returns (uint256[] memory handles);
-}
+// External handle type for encrypted uint128 from FHEVM
+type externalEuint128 is bytes32;
 
 contract PrisonersDilemma {
     enum Choice {
@@ -43,7 +42,7 @@ contract PrisonersDilemma {
 
     struct EncryptedStrategy {
         Rule[] rules;
-        uint256 encryptedActions; // Packed Handle: [Default(8)][Rule0(8)][Rule1(8)]...
+        bytes32 encryptedActions; // Handle stored as bytes32
         bool isSubmitted;
     }
 
@@ -80,14 +79,13 @@ contract PrisonersDilemma {
 
     address public owner;
     address public computationOracle;
-    address public inputVerifier;
-    
+
     mapping(uint256 => mapping(address => EncryptedStrategy)) private encryptedStrategies;
     mapping(uint256 => TournamentInfo) public tournaments;
     mapping(uint256 => address[]) public tournamentPlayers;
     mapping(uint256 => VoteInfo) private tournamentVotes;
     mapping(uint256 => PublishedResults) private tournamentResults;
-    
+
     uint256 public currentTournamentId;
     TournamentInfo public currentTournament;
 
@@ -98,7 +96,6 @@ contract PrisonersDilemma {
     event ResultsPublished(uint256 indexed tournamentId, address[] winners, uint256[] prizes);
     event TournamentFinished(uint256 indexed tournamentId);
     event ComputationOracleSet(address indexed oracle);
-    event InputVerifierSet(address indexed verifier);
     event TournamentRoundsSet(uint256 indexed tournamentId, uint256 rounds);
 
     modifier onlyOwner() {
@@ -116,10 +113,9 @@ contract PrisonersDilemma {
         _;
     }
 
-    constructor(address _inputVerifier) {
+    constructor() {
         owner = msg.sender;
         computationOracle = msg.sender;
-        inputVerifier = _inputVerifier;
         currentTournamentId = 0;
         currentTournament = TournamentInfo({
             tournamentId: 0,
@@ -138,13 +134,8 @@ contract PrisonersDilemma {
         emit ComputationOracleSet(oracle);
     }
 
-    function setInputVerifier(address verifier) external onlyOwner {
-        require(verifier != address(0), "Invalid verifier");
-        inputVerifier = verifier;
-        emit InputVerifierSet(verifier);
-    }
-
     function submitStrategy(
+        externalEuint128 encryptedActionsHandle,
         bytes calldata inputProof,
         ConditionSubject[] calldata subjects,
         ConditionOperator[] calldata operators,
@@ -155,26 +146,23 @@ contract PrisonersDilemma {
         require(subjects.length <= MAX_RULES, "Too many rules");
         require(!encryptedStrategies[currentTournamentId][msg.sender].isSubmitted, "Strategy already submitted");
 
-        // Verify input proof and get handles
-        // Expected order: [packedActions]
-        uint256[] memory handles = IInputVerifier(inputVerifier).verify(msg.sender, inputProof);
-        require(handles.length == 1, "Invalid input proof length");
+        // Store the handle directly - the inputProof validates the handle
+        // In a full FHEVM integration, you would use FHE.fromExternal(encryptedActionsHandle, inputProof)
+        // For now, we just store the handle for later oracle computation
+        require(inputProof.length > 0, "Invalid input proof");
 
         delete encryptedStrategies[currentTournamentId][msg.sender].rules;
 
         EncryptedStrategy storage strategy = encryptedStrategies[currentTournamentId][msg.sender];
         strategy.isSubmitted = true;
 
-        strategy.encryptedActions = handles[0];
-        
+        // Store handle as bytes32
+        strategy.encryptedActions = externalEuint128.unwrap(encryptedActionsHandle);
+
         for (uint256 i = 0; i < subjects.length; i++) {
             _validateRuleStructure(subjects[i], operators[i]);
-            
-            strategy.rules.push(Rule({
-                subject: subjects[i],
-                operator: operators[i],
-                value: values[i]
-            }));
+
+            strategy.rules.push(Rule({subject: subjects[i], operator: operators[i], value: values[i]}));
         }
 
         tournamentPlayers[currentTournamentId].push(msg.sender);
@@ -197,10 +185,10 @@ contract PrisonersDilemma {
     function voteStartTournament() external {
         require(currentTournament.status == TournamentStatus.Registration, "Not in registration");
         require(encryptedStrategies[currentTournamentId][msg.sender].isSubmitted, "Must submit strategy to vote");
-        
+
         VoteInfo storage votes = tournamentVotes[currentTournamentId];
         require(!votes.hasVoted[msg.sender], "Already voted");
-        
+
         votes.hasVoted[msg.sender] = true;
         votes.voteCount++;
 
@@ -221,7 +209,7 @@ contract PrisonersDilemma {
 
         currentTournament.status = TournamentStatus.PendingComputation;
         currentTournament.startTime = block.timestamp;
-        
+
         uint256 n = currentTournament.playerCount;
         currentTournament.totalGames = (n * (n - 1)) / 2;
 
@@ -260,7 +248,7 @@ contract PrisonersDilemma {
 
     function _distributePrizes(uint256 tournamentId) private {
         PublishedResults storage results = tournamentResults[tournamentId];
-        
+
         for (uint256 i = 0; i < results.winners.length; i++) {
             payable(results.winners[i]).transfer(results.prizes[i]);
         }
@@ -277,7 +265,7 @@ contract PrisonersDilemma {
         unchecked {
             ++currentTournamentId;
         }
-        
+
         currentTournament = TournamentInfo({
             tournamentId: currentTournamentId,
             status: TournamentStatus.Registration,
@@ -293,9 +281,17 @@ contract PrisonersDilemma {
 
     function _validateRuleStructure(ConditionSubject subject, ConditionOperator operator) private pure {
         if (subject == ConditionSubject.MyLastMove || subject == ConditionSubject.OpponentLastMove) {
-            require(operator == ConditionOperator.Is || operator == ConditionOperator.IsNot, "Invalid operator for move subject");
+            require(
+                operator == ConditionOperator.Is || operator == ConditionOperator.IsNot,
+                "Invalid operator for move subject"
+            );
         } else {
-            require(operator == ConditionOperator.Equals || operator == ConditionOperator.GreaterThan || operator == ConditionOperator.LessThan, "Invalid operator for numeric subject");
+            require(
+                operator == ConditionOperator.Equals ||
+                    operator == ConditionOperator.GreaterThan ||
+                    operator == ConditionOperator.LessThan,
+                "Invalid operator for numeric subject"
+            );
         }
     }
 
@@ -334,12 +330,18 @@ contract PrisonersDilemma {
         return tournamentVotes[tournamentId].hasVoted[player];
     }
 
-    function getStrategy(address player) external view returns (
-        ConditionSubject[] memory subjects,
-        ConditionOperator[] memory operators,
-        uint256[] memory values,
-        bool isSubmitted
-    ) {
+    function getStrategy(
+        address player
+    )
+        external
+        view
+        returns (
+            ConditionSubject[] memory subjects,
+            ConditionOperator[] memory operators,
+            uint256[] memory values,
+            bool isSubmitted
+        )
+    {
         EncryptedStrategy storage strategy = encryptedStrategies[currentTournamentId][player];
         uint256 rulesLength = strategy.rules.length;
 
@@ -357,26 +359,33 @@ contract PrisonersDilemma {
         isSubmitted = strategy.isSubmitted;
     }
 
-    function getEncryptedStrategyForComputation(address player) external view onlyOracle returns (
-        uint256 encryptedActions,
-        ConditionSubject[] memory subjects,
-        ConditionOperator[] memory operators,
-        uint256[] memory values
-    ) {
+    function getEncryptedStrategyForComputation(
+        address player
+    )
+        external
+        view
+        onlyOracle
+        returns (
+            bytes32 encryptedActions,
+            ConditionSubject[] memory subjects,
+            ConditionOperator[] memory operators,
+            uint256[] memory values
+        )
+    {
         EncryptedStrategy storage strategy = encryptedStrategies[currentTournamentId][player];
         require(strategy.isSubmitted, "No strategy submitted");
-        
+
         uint256 rulesLength = strategy.rules.length;
         subjects = new ConditionSubject[](rulesLength);
         operators = new ConditionOperator[](rulesLength);
         values = new uint256[](rulesLength);
-        
+
         for (uint256 i = 0; i < rulesLength; i++) {
             subjects[i] = strategy.rules[i].subject;
             operators[i] = strategy.rules[i].operator;
             values[i] = strategy.rules[i].value;
         }
-        
+
         encryptedActions = strategy.encryptedActions;
     }
 

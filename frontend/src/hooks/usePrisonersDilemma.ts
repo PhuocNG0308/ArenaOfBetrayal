@@ -127,17 +127,20 @@ export function usePrisonersDilemma() {
     const input = instance.createEncryptedInput(CONTRACT_ADDRESS, address);
     input.add128(packedActions);
 
-    const { inputProof } = await input.encrypt();
+    // encrypt() returns { handles, inputProof }
+    const encryptedResult = await input.encrypt();
+    console.log("Encrypted result:", encryptedResult);
 
     const subjects = rules.map(r => r.subject)
     const operators = rules.map(r => r.operator)
     const values = rules.map(r => BigInt(r.value))
 
+    // Pass the handle (bytes32) and inputProof separately
     const hash = await writeContractAsync({
       address: CONTRACT_ADDRESS as `0x${string}`,
       abi: PrisonersDilemmaABI.abi,
       functionName: 'submitStrategy',
-      args: [toHex(inputProof), subjects, operators, values],
+      args: [encryptedResult.handles[0], toHex(encryptedResult.inputProof), subjects, operators, values],
       value: parseEther('0.01'),
       gas: 5000000n,
     })
