@@ -128,11 +128,14 @@ export function usePrisonersDilemma() {
 
   const tournamentData = tournamentInfo as TournamentData | undefined
 
-  const { data: strategy, refetch: refetchStrategy } = useReadContract({
+  const { data: strategy, refetch: refetchStrategy, isLoading: isStrategyLoading, isFetching: isStrategyFetching } = useReadContract({
     address: CONTRACT_ADDRESS as `0x${string}`,
     abi: PrisonersDilemmaABI.abi,
     functionName: 'getStrategy',
     args: address ? [address] : undefined,
+    query: {
+      enabled: !!address, // Only fetch when address is available
+    }
   })
 
   const { data: voteInfo, refetch: refetchVotes } = useReadContract({
@@ -257,6 +260,7 @@ export function usePrisonersDilemma() {
   return {
     tournamentData,
     strategy: strategy as StrategyData | undefined,
+    isStrategyLoading: isStrategyLoading || isStrategyFetching,
     voteInfo: voteInfo as VoteInfo | undefined,
     hasVoted: hasVotedData as boolean | undefined,
     submitStrategy,

@@ -56,6 +56,7 @@
     "waitingConfirmation": "Waiting for Confirmation...",
     "submitted": "Strategy Submitted!",
     "submittedDescription": "Your strategy is encrypted with FHE and stored on-chain",
+    "loadingStrategy": "Loading your strategy...",
     "cannotEdit": "Cannot Edit Strategy",
     "cannotEditDescription": "Once submitted, your strategy is locked and cannot be changed. This ensures fair play for all participants.",
     "decryptedStrategy": "Your Decrypted Strategy",

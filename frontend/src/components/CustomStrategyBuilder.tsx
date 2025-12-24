@@ -26,6 +26,7 @@ const OPERATORS = {
 const ACTIONS = {
   0: 'Cooperate',
   1: 'Defect',
+  [-1]: 'Encrypted (Hidden)',
 }
 
 const MAX_RULES = 10
@@ -58,12 +59,14 @@ export function CustomStrategyBuilder() {
   const [defaultAction, setDefaultAction] = useState(0)
   const [loading, setLoading] = useState(false)
   const [txHash, setTxHash] = useState<`0x${string}` | undefined>()
-  const { submitStrategy, strategy, refetchTournament, refetchStrategy, isFhevmInitialized, isFhevmInitializing, fhevmError } = usePrisonersDilemma()
+  const { submitStrategy, strategy, isStrategyLoading, refetchTournament, refetchStrategy, isFhevmInitialized, isFhevmInitializing, fhevmError } = usePrisonersDilemma()
   const { t } = useLanguage()
 
   const { isLoading: isConfirming, isSuccess: isConfirmed } = useWaitForTransactionReceipt({
     hash: txHash,
   })
+
+  const hasSubmitted = strategy?.isSubmitted === true
 
   useEffect(() => {
     if (isConfirmed) {
@@ -74,7 +77,17 @@ export function CustomStrategyBuilder() {
     }
   }, [isConfirmed, refetchStrategy, refetchTournament])
 
-  const hasSubmitted = strategy?.isSubmitted
+  useEffect(() => {
+    if (hasSubmitted && strategy) {
+      const submittedRules = strategy.subjects.map((subject, index) => ({
+        subject,
+        operator: strategy.operators[index],
+        value: Number(strategy.values[index]),
+        action: -1 // -1 to indicate encrypted/unknown
+      }))
+      setRules(submittedRules)
+    }
+  }, [hasSubmitted, strategy])
   
   const addRule = () => {
     if (rules.length >= MAX_RULES) {
@@ -133,18 +146,24 @@ export function CustomStrategyBuilder() {
     }
   }
 
-  if (hasSubmitted) {
-    const submittedRules = strategy.subjects.map((subject, i) => ({
-      subject: subject,
-      operator: strategy.operators[i],
-      value: Number(strategy.values[i]),
-    }))
+  // Show loading state while fetching strategy from blockchain
+  if (isStrategyLoading) {
+    return (
+      <div className="bg-gray-900/50 border border-gray-700 rounded-xl p-6 backdrop-blur-sm">
+        <h2 className="text-2xl font-bold mb-4 text-white">{t('strategy.title')}</h2>
+        <div className="flex items-center justify-center gap-3 p-8">
+          <Loader2 className="text-primary-400 animate-spin" size={24} />
+          <span className="text-gray-300">{t('strategy.loadingStrategy') || 'Loading your strategy...'}</span>
+        </div>
+      </div>
+    )
+  }
 
+  if (hasSubmitted) {
     return (
       <div className="bg-gray-900/50 border border-gray-700 rounded-xl p-6 backdrop-blur-sm">
         <h2 className="text-2xl font-bold mb-4 text-white">{t('strategy.yourStrategy')}</h2>
         
-        {/* Success Banner */}
         <div className="flex items-center gap-3 p-4 bg-success-900/30 border border-success-700 rounded-lg mb-6">
           <CheckCircle className="text-success-500" size={24} />
           <div>
@@ -153,7 +172,6 @@ export function CustomStrategyBuilder() {
           </div>
         </div>
 
-        {/* Warning Banner */}
         <div className="flex items-start gap-3 p-4 bg-orange-900/30 border border-orange-700 rounded-lg mb-6">
           <Info className="text-orange-400 mt-0.5 flex-shrink-0" size={20} />
           <div>
@@ -164,18 +182,16 @@ export function CustomStrategyBuilder() {
           </div>
         </div>
 
-        {/* Decrypted Strategy View */}
         <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-5">
           <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
             <span>{t('strategy.decryptedStrategy')}</span>
             <span className="text-xs text-gray-400 font-normal">{t('strategy.onlyVisibleToYou')}</span>
           </h3>
 
-          {/* Rules List */}
-          {submittedRules.length > 0 ? (
+          {rules.length > 0 ? (
             <div className="space-y-3 mb-5">
               <p className="text-sm text-gray-400 mb-2">{t('strategy.conditionalRules')}</p>
-              {submittedRules.map((rule, index) => (
+              {rules.map((rule, index) => (
                 <div key={index} className="bg-gray-700/50 border border-gray-600 rounded-lg p-4">
                   <div className="flex items-center gap-2 mb-2">
                     <span className="text-xs font-semibold text-gray-400">{t('strategy.rule')} #{index + 1}</span>
@@ -201,7 +217,6 @@ export function CustomStrategyBuilder() {
             <p className="text-sm text-gray-400 mb-5">{t('strategy.noRules')}</p>
           )}
 
-          {/* Default Action */}
           <div className="bg-gray-700/50 border border-gray-600 rounded-lg p-4">
             <p className="text-xs text-gray-400 mb-2">{t('strategy.defaultAction')}</p>
             <div className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-purple-900/30 border border-purple-700">
@@ -210,7 +225,6 @@ export function CustomStrategyBuilder() {
           </div>
         </div>
 
-        {/* FHE Info */}
         <div className="mt-4 p-3 bg-primary-900/20 border border-primary-700 rounded-lg">
           <p className="text-xs text-primary-300">
             🔐 {t('strategy.privacyNote')}

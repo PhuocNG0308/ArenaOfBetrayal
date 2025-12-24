@@ -8,7 +8,7 @@ import { CheckCircle, Loader2 } from 'lucide-react'
 export function StrategySelector() {
   const [selectedStrategy, setSelectedStrategy] = useState<string>('')
   const [loading, setLoading] = useState(false)
-  const { submitStrategy, strategy, refetchTournament } = usePrisonersDilemma()
+  const { submitStrategy, strategy, isStrategyLoading, refetchTournament } = usePrisonersDilemma()
 
   const handleSubmit = async () => {
     if (!selectedStrategy) return
@@ -27,7 +27,20 @@ export function StrategySelector() {
     }
   }
 
-  const hasSubmitted = strategy?.isSubmitted
+  const hasSubmitted = strategy?.isSubmitted === true
+
+  // Show loading while fetching strategy status from blockchain
+  if (isStrategyLoading) {
+    return (
+      <div className="bg-gray-900/50 border border-gray-700 rounded-xl p-6 backdrop-blur-sm">
+        <h2 className="text-2xl font-bold mb-4 text-white">Submit Your Strategy</h2>
+        <div className="flex items-center justify-center gap-3 p-8">
+          <Loader2 className="text-primary-400 animate-spin" size={24} />
+          <span className="text-gray-300">Loading your strategy status...</span>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="bg-gray-900/50 border border-gray-700 rounded-xl p-6 backdrop-blur-sm">

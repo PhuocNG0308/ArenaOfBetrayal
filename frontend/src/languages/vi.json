@@ -56,6 +56,7 @@
     "waitingConfirmation": "Đang chờ xác nhận...",
     "submitted": "Đã Gửi Chiến Thuật!",
     "submittedDescription": "Chiến thuật của bạn đã được mã hóa bằng FHE và lưu trên blockchain",
+    "loadingStrategy": "Đang tải chiến thuật của bạn...",
     "cannotEdit": "Không Thể Chỉnh Sửa Chiến Thuật",
     "cannotEditDescription": "Sau khi gửi, chiến thuật của bạn sẽ bị khóa và không thể thay đổi. Điều này đảm bảo công bằng cho tất cả người chơi.",
     "decryptedStrategy": "Chiến Thuật Đã Giải Mã",
