@@ -17,11 +17,12 @@ export function ConnectWallet() {
     setMounted(true)
   }, [])
 
+  // Auto-switch to Sepolia when connected to wrong network
   useEffect(() => {
-    if (isConnected && chainId !== sepolia.id && switchChain) {
-      // We can auto-switch here if desired, or let the user click the button
+    if (isConnected && chainId !== sepolia.id) {
+      // Optionally auto-switch: switchChain?.({ chainId: sepolia.id })
     }
-  }, [isConnected, chainId, switchChain])
+  }, [isConnected, chainId])
 
   if (!mounted) {
     return (
